@@ -74,5 +74,14 @@ def transport_checks(n_modes, transfer_matrix=None, scat_matrix=None):
         t_dagger, r_dagger = np.conj(t.T), np.conj(r.T)
         print(np.allclose(n_modes-np.trace(r_dagger @ r), np.trace(t_dagger @ t)))
 
+def thermal_average(T, E, G):
 
+    # Compute the thermal average of a given conductance
+    return []
+
+
+def finite_Voltage_bias(Vb, G):
+
+    # Compute conductance in a finite Voltage bias
+    return[]
 
