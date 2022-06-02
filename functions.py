@@ -2,6 +2,31 @@
 import numpy as np
 from numpy.linalg import inv
 
+def f_FD(E, mu, T):
+
+    # Fermi-Dirac distribution
+    k_B = 8.617333262e-8  # [meV/K]
+    beta = 1 / (k_B * T)
+
+    if T != 0:
+        return 1 / (np.exp(beta * (E - mu)) + 1)
+    else:
+        return np.heaviside(E - mu, 1)
+
+
+def df_FD(E, mu, T):
+
+    # Derivative of the Fermi-Dirac distribution
+    k_B = 8.617333262e-8  # [meV/K]
+    beta = 1 / (k_B * T)
+
+    if T != 0:
+        return - beta * np.exp(beta * (E - mu)) / (np.exp(beta * (E - mu)) + 1) ** 2
+    else:
+        raise ValueError("T=0 limit undefined unless inside an integral!")
+
+
+
 
 def Conductance(E, Vg, V_bias):
     n_bands = len(E[:, 0])
