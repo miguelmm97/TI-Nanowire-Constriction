@@ -5,10 +5,10 @@ from numpy.linalg import inv
 def f_FD(E, mu, T):
 
     # Fermi-Dirac distribution
-    k_B = 8.617333262e-8  # [meV/K]
-    beta = 1 / (k_B * T)
+    k_B = 8.617333262e-2  # [meV/K]
 
     if T != 0:
+        beta = 1 / (k_B * T)
         return 1 / (np.exp(beta * (E - mu)) + 1)
     else:
         return np.heaviside(E - mu, 1)
@@ -101,7 +101,7 @@ def thermal_average(T, mu, E, G):
     integrand = - G * df_FD(E, mu, T)
     return np.trapz(integrand, E)
 
-def finite_Voltage_bias(T, mu1, mu2, E, G):
+def finite_voltage_bias(T, mu1, mu2, E, G):
 
     # Compute conductance in a finite Voltage bias
     # T: Temperature

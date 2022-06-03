@@ -6,7 +6,7 @@ import time
 import matplotlib.pyplot as plt
 from numpy.linalg import inv
 from scipy.linalg import block_diag, expm
-from functions import transfer_to_scattering, scat_product, transport_checks, thermal_average, df_FD
+from functions import transfer_to_scattering, scat_product, transport_checks, thermal_average, finite_voltage_bias
 
 
 #%% Parameters
@@ -17,9 +17,9 @@ e = 1.6e-19                         # Electron charge in C
 G_q = ((e ** 2) / hbar)             # Conductance quantum
 vf = 330                            # Fermi velocity in meV nm
 w, h = 120, 20                      # Width and height of the wire in nm
-L = 1100                            # Length of the nanowire
+L = 600                          # Length of the nanowire
 P = (2 * w) + (2 * h)               # Perimeter of the wire
-E_F = np.linspace(-30, 30, 600)     # Fermi energy
+E_F = np.linspace(-35, 35, 600)     # Fermi energy
 dE = E_F[1] - E_F[0]                # Separation in energies
 
 
@@ -72,14 +72,10 @@ for n in modes:
 
 # Low temperature thermal average of the conductance
 T = 10                                                  # Temperature in K
-thermal_interval = 5                                   # Energy range above and below mu that we include on the thermal average in meV
+thermal_interval = 10                                   # Energy range above and below mu that we include on the thermal average in meV
 sample_points = int(thermal_interval / dE)              # Points included in the integration above and below
 E_F_thermal = E_F[sample_points: -sample_points]        # Range over which we calculate the thermal conductance
 G_therm = np.zeros((len(E_F_thermal), ))                # Thermal conductance vector
-
-
-print(len(E_F_thermal))
-
 for i, energy in enumerate(E_F_thermal):
     print(str(i) + "/" + str(len(E_F_thermal)))
     j = i + sample_points                                                       # Index in the complete E_f vector
@@ -87,17 +83,39 @@ for i, energy in enumerate(E_F_thermal):
     G_interval = G[j - sample_points: j + sample_points]                        # Conductance range for integration
     G_therm[i] = thermal_average(T, E_F[j], integration_interval, G_interval)   # Thermal averaged conductance
 
+
+# Finite voltage bias
+eVb = 5
+sample_points = int(0.5 * eVb / dE)              # Points included in the integration above and below
+E_F_bias = E_F[sample_points: -sample_points]    # Range over which we calculate the thermal conductance
+G_bias = np.zeros((len(E_F_bias), ))             # Thermal conductance vector
+for i, energy in enumerate(E_F_bias):
+    print(str(i) + "/" + str(len(E_F_bias)))
+    j = i + sample_points            # Index in the complete E_f vector
+    mu1, mu2 = E_F[j] + (0.5 * eVb), E_F[j] - (0.5 * eVb)
+    integration_interval = E_F[j - sample_points: j + sample_points]                 # Energy range for integration
+    G_interval = G[j - sample_points: j + sample_points]                             # Conductance range for integration
+    G_bias[i] = finite_voltage_bias(0, mu1, mu2, integration_interval, G_interval)   # Thermal averaged conductance
+    print(G_bias[i])
+
+
+
+
+
+
+
 #%% Figures
 plt.plot(E_F, G, '.k', markersize=5)
 plt.plot(E_F, G_an, 'b', linewidth=1)
 plt.plot(E_F_thermal, G_therm, '.r', markersize=2)
+plt.plot(E_F_bias, G_bias, '.m', markersize=2)
 plt.plot(E_F, np.repeat(2, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(4, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(6, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(8, len(E_F)), '-.k')
 plt.xlim(E_F_thermal[0], E_F_thermal[-1])
 plt.ylim(0, 6)
-plt.legend(("Numerical", "Analytical", "Thermal Average " + str(T) + "K"))
+plt.legend(("Numerical", "Analytical", "Thermal Average " + str(T) + "K", "Vb=" + str(eVb) + " meV"))
 plt.xlabel("$E_F$ (meV)")
 plt.ylabel("$G/G_Q$")
 plt.title("$B_\perp =0$" + ", $L=$" + str(L) + ", $w=$" + str(w) + ", $h=$" + str(h))
