@@ -16,7 +16,7 @@ def f_FD(E, mu, T):
 def df_FD(E, mu, T):
 
     # Derivative of the Fermi-Dirac distribution
-    k_B = 8.617333262e-8  # [meV/K]
+    k_B = 8.617333262e-2  # [meV/K]
     beta = 1 / (k_B * T)
 
     if T != 0:
