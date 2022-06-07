@@ -11,7 +11,7 @@ def f_FD(E, mu, T):
         beta = 1 / (k_B * T)
         return 1 / (np.exp(beta * (E - mu)) + 1)
     else:
-        return np.heaviside(E - mu, 1)
+        return np.heaviside(mu - E, 1)
 
 def df_FD(E, mu, T):
 
@@ -110,7 +110,7 @@ def finite_voltage_bias(T, mu1, mu2, E, G):
     # G: Conductance for that range of energies
 
     integrand = G * (f_FD(E, mu1, T) - f_FD(E, mu2, T))
-    return np.trapz(integrand, E)
+    return np.trapz(integrand, E) / (mu1 - mu2)
 
 def Conductance(E, Vg, V_bias):
     n_bands = len(E[:, 0])

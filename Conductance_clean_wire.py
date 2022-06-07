@@ -17,7 +17,7 @@ e = 1.6e-19                         # Electron charge in C
 G_q = ((e ** 2) / hbar)             # Conductance quantum
 vf = 330                            # Fermi velocity in meV nm
 w, h = 120, 20                      # Width and height of the wire in nm
-L = 600                          # Length of the nanowire
+L = 600                             # Length of the nanowire
 P = (2 * w) + (2 * h)               # Perimeter of the wire
 E_F = np.linspace(-35, 35, 600)     # Fermi energy
 dE = E_F[1] - E_F[0]                # Separation in energies
@@ -29,6 +29,7 @@ modes = np.arange(-l_cutoff, l_cutoff+1)       # Angular momentum modes
 n_modes = int(len(modes))                      # Number of l modes
 n_s = 2                                        # Spin components
 G = np.zeros((len(E_F), ))                     # Conductance vector
+G_an = np.zeros((len(E_F), ))                  # Analytical conductance vector
 L_grid = 1000
 dx = L / L_grid
 
@@ -39,6 +40,19 @@ sigma_y = np.array([[0, -1j], [1j, 0]])  # Pauli y
 sigma_z = np.array([[1, 0], [0, -1]])    # Pauli z
 
 
+# Thermal average parameters
+T = 10                                                          # Temperature in K
+thermal_interval = 10                                           # Energy range above and below mu that we include on the thermal average in meV
+sample_points_therm = int(thermal_interval / dE)                # Points included in the integration above and below
+E_F_thermal = E_F[sample_points_therm: -sample_points_therm]    # Range over which we calculate the thermal conductance
+G_therm = np.zeros((len(E_F_thermal), ))                        # Thermal conductance vector
+
+
+# Finite voltage bias parameters
+eVb = 10                                                  # Finite voltage bias
+sample_points_bias = int(eVb / dE)                        # Points included in the integration above and below
+E_F_bias = E_F[sample_points_bias: -sample_points_bias]   # Range over which we calculate the thermal conductance
+G_bias = np.zeros((len(E_F_bias), ))                      # Thermal conductance vector
 #%% Transport calculation
 
 # Zero-temperature and bias calculation
@@ -61,7 +75,6 @@ for i, energy in enumerate(E_F):
 
 
 # Analytical expression (see Quantum-limited shot noise in graphene paper)
-G_an = np.zeros((len(E_F), ))
 for n in modes:
     aux = ((2 * pi / P) * (n - 0.5)) ** 2
     aux2 = ((E_F / vf) ** 2) - np.repeat(aux, len(E_F))
@@ -71,34 +84,23 @@ for n in modes:
 
 
 # Low temperature thermal average of the conductance
-T = 10                                                  # Temperature in K
-thermal_interval = 10                                   # Energy range above and below mu that we include on the thermal average in meV
-sample_points = int(thermal_interval / dE)              # Points included in the integration above and below
-E_F_thermal = E_F[sample_points: -sample_points]        # Range over which we calculate the thermal conductance
-G_therm = np.zeros((len(E_F_thermal), ))                # Thermal conductance vector
 for i, energy in enumerate(E_F_thermal):
     print(str(i) + "/" + str(len(E_F_thermal)))
-    j = i + sample_points                                                       # Index in the complete E_f vector
-    integration_interval = E_F[j - sample_points: j + sample_points]            # Energy range for integration
-    G_interval = G[j - sample_points: j + sample_points]                        # Conductance range for integration
-    G_therm[i] = thermal_average(T, E_F[j], integration_interval, G_interval)   # Thermal averaged conductance
+    j = i + sample_points_therm                                                       # Index in the complete E_f vector
+    integration_interval = E_F[j - sample_points_therm: j + sample_points_therm]      # Energy range for integration
+    G_interval = G[j - sample_points_therm: j + sample_points_therm]                  # Conductance range for integration
+    G_therm[i] = thermal_average(T, E_F[j], integration_interval, G_interval)         # Thermal averaged conductance
 
 
 # Finite voltage bias
-eVb = 5
-sample_points = int(0.5 * eVb / dE)              # Points included in the integration above and below
-E_F_bias = E_F[sample_points: -sample_points]    # Range over which we calculate the thermal conductance
-G_bias = np.zeros((len(E_F_bias), ))             # Thermal conductance vector
 for i, energy in enumerate(E_F_bias):
     print(str(i) + "/" + str(len(E_F_bias)))
-    j = i + sample_points            # Index in the complete E_f vector
-    mu1, mu2 = E_F[j] + (0.5 * eVb), E_F[j] - (0.5 * eVb)
-    integration_interval = E_F[j - sample_points: j + sample_points]                 # Energy range for integration
-    G_interval = G[j - sample_points: j + sample_points]                             # Conductance range for integration
+    j = i + sample_points_bias                                                       # Index in the complete E_f vector
+    mu1, mu2 = E_F[j] + (0.5 * eVb), E_F[j] - (0.5 * eVb)                            # Chemical potentials
+    integration_interval = E_F[j - sample_points_bias: j + sample_points_bias]       # Energy range for integration
+    G_interval = G[j - sample_points_bias: j + sample_points_bias]                   # Conductance range for integration
     G_bias[i] = finite_voltage_bias(0, mu1, mu2, integration_interval, G_interval)   # Thermal averaged conductance
     print(G_bias[i])
-
-
 
 
 
