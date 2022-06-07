@@ -2,11 +2,9 @@
 
 import numpy as np
 from numpy import pi
-import time
 import matplotlib.pyplot as plt
-from numpy.linalg import inv
-from scipy.linalg import block_diag, expm
-from functions import transfer_to_scattering, scat_product, transport_checks, thermal_average, finite_voltage_bias
+from scipy.linalg import  expm
+from functions import transfer_to_scattering, transport_checks, thermal_average, finite_voltage_bias
 
 
 #%% Parameters
@@ -53,9 +51,11 @@ eVb = 10                                                  # Finite voltage bias
 sample_points_bias = int(eVb / dE)                        # Points included in the integration above and below
 E_F_bias = E_F[sample_points_bias: -sample_points_bias]   # Range over which we calculate the thermal conductance
 G_bias = np.zeros((len(E_F_bias), ))                      # Thermal conductance vector
+
+
 #%% Transport calculation
 
-# Zero-temperature and bias calculation
+# Zero-temperature and zero-bias calculation
 M_spin2 = sigma_x                                # Exponent of the spin transfer matrix
 M_modes1 = np.eye(n_modes)                       # Exponent of the mode transfer matrix
 M_modes2 = (2 * pi / P) * np.diag(modes - 0.5)   # Exponent of the mode transfer matrix
@@ -100,10 +100,6 @@ for i, energy in enumerate(E_F_bias):
     integration_interval = E_F[j - sample_points_bias: j + sample_points_bias]       # Energy range for integration
     G_interval = G[j - sample_points_bias: j + sample_points_bias]                   # Conductance range for integration
     G_bias[i] = finite_voltage_bias(0, mu1, mu2, integration_interval, G_interval)   # Thermal averaged conductance
-    print(G_bias[i])
-
-
-
 
 
 #%% Figures
