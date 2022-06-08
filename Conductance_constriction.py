@@ -4,8 +4,8 @@ import numpy as np
 from numpy import pi
 import time
 import matplotlib.pyplot as plt
-from numpy.linalg import inv
-from scipy.linalg import block_diag, expm
+import h5py
+from scipy.linalg import expm
 from functions import transfer_to_scattering, scat_product, transport_checks, thermal_average, finite_voltage_bias
 
 
@@ -16,14 +16,14 @@ hbar = 1                            # Planck's constant
 e = 1.6e-19                         # Electron charge in C
 G_q = ((e ** 2) / hbar)             # Conductance quantum
 vf = 330                            # Fermi velocity in meV nm
-E_F = np.linspace(-100, 100, 400)   # Fermi energy
+E_F = np.linspace(-120, 120, 1200)  # Fermi energy
 dE = E_F[1] - E_F[0]                # Separation in energies
-B_par, B_perp = 6, 0                # Parallel and perpendicular magnetic fields in T
+B_par, B_perp = 0, 6                # Parallel and perpendicular magnetic fields in T
 
 # Geometry of the nanostructure (MUST BE SYMMETRIC)
 l_lead, l_cone, l_constriction = 100, 100, 100  # Length of the leads, cones, and the constriction (nm)
-w1, h1 = 150, 30                   # Width and height of the wire in the leads (nm)
-w2, h2 = 20, 30                    # Width and height of the wire in the constriction (nm)
+w1, h1 = 150, 15                   # Width and height of the wire in the leads (nm)
+w2, h2 = 15, 15                    # Width and height of the wire in the constriction (nm)
 a1 = (w1 + h1) / pi                # Radius at x1
 a2 = (w2 + h2) / pi                # Radius at x2
 x0 = 0                             # Initial length
@@ -96,8 +96,8 @@ sigma_z = np.array([[1, 0], [0, -1]])    # Pauli z
 
 
 # Thermal average parameters
-T = 10                                                          # Temperature in K
-thermal_interval = 10                                           # Energy range above and below mu that we include on the thermal average in meV
+T = 30                                                          # Temperature in K
+thermal_interval = 20                                           # Energy range above and below mu that we include on the thermal average in meV
 sample_points_therm = int(thermal_interval / dE)                # Points included in the integration above and below
 E_F_thermal = E_F[sample_points_therm: -sample_points_therm]    # Range over which we calculate the thermal conductance
 G_therm = np.zeros((len(E_F_thermal), ))                        # Thermal conductance vector
@@ -180,24 +180,56 @@ for i, energy in enumerate(E_F_bias):
     G_interval = G[j - sample_points_bias: j + sample_points_bias]                   # Conductance range for integration
     G_bias[i] = finite_voltage_bias(0, mu1, mu2, integration_interval, G_interval)   # Thermal averaged conductance
 
+#%% Output data
+outfile = "G_B=" + str(B_perp) + "_T=" + str(T)
+with h5py.File(outfile + '.h5', 'w') as f:
+    f.create_dataset("data", data=[G])
+    f["data"].attrs.create("B_perp", data=B_perp)
+    f["data"].attrs.create("B_par", data=B_par)
+    f["data"].attrs.create("T", data=T)
+    f["data"].attrs.create("w1", data=w1)
+    f["data"].attrs.create("h1", data=h1)
+    f["data"].attrs.create("w2", data=w2)
+    f["data"].attrs.create("h2", data=h2)
+
 
 #%% Figures
 
 # Conductance
 plt.plot(E_F, G, '-b', linewidth=1)
 plt.plot(E_F_thermal, G_therm, '.r', markersize=2)
-plt.plot(E_F_bias, G_bias, '.m', markersize=2)
+# plt.plot(E_F_bias, G_bias, '.m', markersize=2)
 plt.plot(E_F, np.repeat(1, len(E_F)), '-.k', linewidth=1, alpha=0.3)
 plt.plot(E_F, np.repeat(3, len(E_F)), '-.k', linewidth=1, alpha=0.3)
 plt.plot(E_F, np.repeat(5, len(E_F)), '-.k', linewidth=1, alpha=0.3)
 plt.plot(E_F, np.repeat(7, len(E_F)), '-.k', linewidth=1, alpha=0.3)
-plt.legend(("T=0K", "Thermal Average " + str(T) + "K", "Vb=" + str(eVb) + " meV"))
+plt.legend(("T=0K", "Thermal Average " + str(T) + "K")) # , "Vb=" + str(eVb) + " meV"))
 
 plt.xlabel("$E_F$ (meV)")
 plt.ylabel("$G/G_Q$")
-plt.xlim([0, E_F[-1]])
+plt.xlim([-100, 100])
 plt.ylim([0, max(G)])
 plt.title("$B_\perp =$" + str(B_perp) + "$, B =$" + str(B_par) + ", $L_{leads}=$" + str(l_lead) + ", $L_{cones}=$" + str(l_cone) +
           ", $L_{constriction}=$" + str(l_constriction)  +", $w_1=$" + str(w1) +", $h_1=$" + str(h1) + ", $w_2=$" + str(w2) +
           ", $h_2=$" + str(h2) )
+plt.savefig(outfile + "_T0" + ".pdf", bbox_inches="tight")
+plt.show()
+
+
+
+# Only thermal averged conductance
+plt.plot(E_F_thermal, G_therm, '-b', linewidth=1)
+plt.plot(E_F, np.repeat(1, len(E_F)), '-.k', linewidth=1, alpha=0.3)
+plt.plot(E_F, np.repeat(3, len(E_F)), '-.k', linewidth=1, alpha=0.3)
+plt.plot(E_F, np.repeat(5, len(E_F)), '-.k', linewidth=1, alpha=0.3)
+plt.plot(E_F, np.repeat(7, len(E_F)), '-.k', linewidth=1, alpha=0.3)
+
+plt.xlabel("$E_F$ (meV)")
+plt.ylabel("$G/G_Q$")
+plt.xlim([-100, 100])
+plt.ylim([0, max(G)])
+plt.title("$T=$" + str(T) + "$, B_\perp =$" + str(B_perp) + "$, B =$" + str(B_par) + ", $L_{leads}=$" + str(l_lead) + ", $L_{cones}=$" + str(l_cone) +
+          ", $L_{constriction}=$" + str(l_constriction)  +", $w_1=$" + str(w1) +", $h_1=$" + str(h1) + ", $w_2=$" + str(w2) +
+          ", $h_2=$" + str(h2))
+plt.savefig(outfile + "_Thermal" + ".pdf", bbox_inches="tight")
 plt.show()
