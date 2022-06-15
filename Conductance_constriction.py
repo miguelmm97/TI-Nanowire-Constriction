@@ -2,7 +2,7 @@
 
 import numpy as np
 from numpy import pi
-import time
+import os
 import matplotlib.pyplot as plt
 import h5py
 from scipy.linalg import expm
@@ -96,7 +96,7 @@ sigma_z = np.array([[1, 0], [0, -1]])    # Pauli z
 
 
 # Thermal average parameters
-T = 30                                                          # Temperature in K
+T = 4                                                          # Temperature in K
 thermal_interval = 20                                           # Energy range above and below mu that we include on the thermal average in meV
 sample_points_therm = int(thermal_interval / dE)                # Points included in the integration above and below
 E_F_thermal = E_F[sample_points_therm: -sample_points_therm]    # Range over which we calculate the thermal conductance
@@ -110,55 +110,68 @@ E_F_bias = E_F[sample_points_bias: -sample_points_bias]   # Range over which we 
 G_bias = np.zeros((len(E_F_bias), ))                      # Thermal conductance vector
 
 
+# Loading possible data
+file_name ="G_" + str(B_perp) + str(B_par) + str(w1) + str(w2) + str(h1) + str(h2) + ".h5"
+outdir = "Data"
+calculate_G = 1  # 1 means we need to calculate in the code
+for file in os.listdir(outdir):
+    if file == file_name:
+        calculate_G = 0  # 0 means we have uploaded it from the data we already have
+        file_path = os.path.join(outdir, file)
+        with h5py.File(file_path, 'r') as f:
+            datanode = f['data']
+            G = datanode[0, :]  # Conductance at T=0K
+
 #%% Transport calculation at 0K and Vb=0 meV
 
-M_modes1 = np.eye(n_modes)                       # Exponent of the mode transfer matrix for the Ef term
-M_modes2 = np.diag(modes - 0.5)                  # Exponent of the mode transfer matrix for the p_y term
-M1_aux = (1j / vf) * np.kron(sigma_z, M_modes1)  # Exponent of the transfer matrix for the Ef term (wo Ef)
-M2_aux = np.kron(sigma_x, M_modes2)              # Exponent of the transfer matrix for the p_y term (wo 1/a)
-M3_aux = aux1 * np.kron(sigma_x, M_modes1)       # Exponent of the transfer matrix for the eA_y term (wo a)
-# Mode mixing matrix for eA_x
-def M_offdiag(x):
+if calculate_G == 1:
+    M_modes1 = np.eye(n_modes)                       # Exponent of the mode transfer matrix for the Ef term
+    M_modes2 = np.diag(modes - 0.5)                  # Exponent of the mode transfer matrix for the p_y term
+    M1_aux = (1j / vf) * np.kron(sigma_z, M_modes1)  # Exponent of the transfer matrix for the Ef term (wo Ef)
+    M2_aux = np.kron(sigma_x, M_modes2)              # Exponent of the transfer matrix for the p_y term (wo 1/a)
+    M3_aux = aux1 * np.kron(sigma_x, M_modes1)       # Exponent of the transfer matrix for the eA_y term (wo a)
+    # Mode mixing matrix for eA_x
+    def M_offdiag(x):
 
-    M_eA = np.zeros([n_modes, n_modes], )  # Mode mixing matrix for the vector potential
-    r = width(x) / (width(x) + height(x))  # Aspect ratio at point x in the geometry
-    P = 2 * (width(x) + height(x))         # Perimeter at point x in the geometry
+        M_eA = np.zeros([n_modes, n_modes], )  # Mode mixing matrix for the vector potential
+        r = width(x) / (width(x) + height(x))  # Aspect ratio at point x in the geometry
+        P = 2 * (width(x) + height(x))         # Perimeter at point x in the geometry
 
-    for i, n1 in enumerate(modes):
-        for j, n2 in enumerate(modes):
+        for i, n1 in enumerate(modes):
+            for j, n2 in enumerate(modes):
 
-            if (n1 - n2) % 2 != 0:
-                m = n1 - n2
-                M_eA[i, j] = aux2 * P * vf * ((-1) ** ((m + 1) / 2)) * np.sin(m * pi * r / 2) / (m * m * pi * pi)
+                if (n1 - n2) % 2 != 0:
+                    m = n1 - n2
+                    M_eA[i, j] = aux2 * P * vf * ((-1) ** ((m + 1) / 2)) * np.sin(m * pi * r / 2) / (m * m * pi * pi)
 
-    return M_eA
+        return M_eA
 
-# Sweep the Fermi level
-for i, fermi_level in enumerate(E_F):
+    # Sweep the Fermi level
+    for i, fermi_level in enumerate(E_F):
 
-    print(str(i) + "/" + str(len(E_F)-1))
+        print(str(i) + "/" + str(len(E_F)-1))
 
-    # Propagation of the scattering matrix
-    for j, x in enumerate(L_grid):
+        # Propagation of the scattering matrix
+        for j, x in enumerate(L_grid):
 
-        M1 = fermi_level * np.sqrt(1 + slope(x) ** 2) * M1_aux  # Exponent of the transfer matrix for the Ef term
-        M2 = M2_aux * np.sqrt(1 + slope(x) ** 2) / radius(x)    # Exponent of the transfer matrix for the p_y term
-        M3 = M3_aux * radius(x) * np.sqrt(1 + slope(x) ** 2)    # Exponent of the transfer matrix for the eA_x term
-        M4 = (-1j / vf) * np.kron(sigma_0, M_offdiag(x))        # Exponent of the transfer matrix for the eA_y term
-        M = M1 + M2 + M3 + M4                                   # Exponent of the transfer matrix
-        transfer_matrix = expm(M * dx)                          # Transfer matrix
+            M1 = fermi_level * np.sqrt(1 + slope(x) ** 2) * M1_aux  # Exponent of the transfer matrix for the Ef term
+            M2 = M2_aux * np.sqrt(1 + slope(x) ** 2) / radius(x)    # Exponent of the transfer matrix for the p_y term
+            M3 = M3_aux * radius(x) * np.sqrt(1 + slope(x) ** 2)    # Exponent of the transfer matrix for the eA_x term
+            M4 = (-1j / vf) * np.kron(sigma_0, M_offdiag(x))        # Exponent of the transfer matrix for the eA_y term
+            M = M1 + M2 + M3 + M4                                   # Exponent of the transfer matrix
+            transfer_matrix = expm(M * dx)                          # Transfer matrix
 
-        if j == 0:
-            scat_matrix = transfer_to_scattering(transfer_matrix, n_modes)     # Initial scattering matrix
-        else:
-            scat_matrix_dx = transfer_to_scattering(transfer_matrix, n_modes)  # Scattering matrix for dx
-            scat_matrix = scat_product(scat_matrix, scat_matrix_dx, n_modes)   # Propagating the scattering matrix
+            if j == 0:
+                scat_matrix = transfer_to_scattering(transfer_matrix, n_modes)     # Initial scattering matrix
+            else:
+                scat_matrix_dx = transfer_to_scattering(transfer_matrix, n_modes)  # Scattering matrix for dx
+                scat_matrix = scat_product(scat_matrix, scat_matrix_dx, n_modes)   # Propagating the scattering matrix
 
 
-    t = scat_matrix[n_modes:, 0: n_modes]      # Transmission matrix
-    t_dagger = np.conj(t.T)                    # Conjugate transmission matrix
-    G[i] = np.trace(t_dagger @ t)              # Conductance / Gq
-    print(G[i])
+        t = scat_matrix[n_modes:, 0: n_modes]      # Transmission matrix
+        t_dagger = np.conj(t.T)                    # Conjugate transmission matrix
+        G[i] = np.trace(t_dagger @ t)              # Conductance / Gq
+        print(G[i])
 
 
 #%% Thermal-averaged conductance at low temperatures
@@ -170,6 +183,7 @@ for i, energy in enumerate(E_F_thermal):
     G_interval = G[j - sample_points_therm: j + sample_points_therm]                  # Conductance range for integration
     G_therm[i] = thermal_average(T, E_F[j], integration_interval, G_interval)         # Thermal averaged conductance
 
+
 #%% Finite voltage bias conductance
 
 for i, energy in enumerate(E_F_bias):
@@ -180,25 +194,25 @@ for i, energy in enumerate(E_F_bias):
     G_interval = G[j - sample_points_bias: j + sample_points_bias]                   # Conductance range for integration
     G_bias[i] = finite_voltage_bias(0, mu1, mu2, integration_interval, G_interval)   # Thermal averaged conductance
 
-#%% Output data
-outfile = "G_B=" + str(B_perp) + "_T=" + str(T)
-with h5py.File(outfile + '.h5', 'w') as f:
-    f.create_dataset("data", data=[G])
-    f["data"].attrs.create("B_perp", data=B_perp)
-    f["data"].attrs.create("B_par", data=B_par)
-    f["data"].attrs.create("T", data=T)
-    f["data"].attrs.create("w1", data=w1)
-    f["data"].attrs.create("h1", data=h1)
-    f["data"].attrs.create("w2", data=w2)
-    f["data"].attrs.create("h2", data=h2)
 
+#%% Output data
+
+if calculate_G == 1:
+    with h5py.File(file_name, 'w') as f:
+        f.create_dataset("data", data=[G])
+        f["data"].attrs.create("B_perp", data=B_perp)
+        f["data"].attrs.create("B_par", data=B_par)
+        f["data"].attrs.create("w1", data=w1)
+        f["data"].attrs.create("h1", data=h1)
+        f["data"].attrs.create("w2", data=w2)
+        f["data"].attrs.create("h2", data=h2)
 
 #%% Figures
 
 # Conductance
 plt.plot(E_F, G, '-b', linewidth=1)
 plt.plot(E_F_thermal, G_therm, '.r', markersize=2)
-# plt.plot(E_F_bias, G_bias, '.m', markersize=2)
+plt.plot(E_F_bias, G_bias, '.m', markersize=2)
 plt.plot(E_F, np.repeat(1, len(E_F)), '-.k', linewidth=1, alpha=0.3)
 plt.plot(E_F, np.repeat(3, len(E_F)), '-.k', linewidth=1, alpha=0.3)
 plt.plot(E_F, np.repeat(5, len(E_F)), '-.k', linewidth=1, alpha=0.3)
@@ -212,7 +226,7 @@ plt.ylim([0, max(G)])
 plt.title("$B_\perp =$" + str(B_perp) + "$, B =$" + str(B_par) + ", $L_{leads}=$" + str(l_lead) + ", $L_{cones}=$" + str(l_cone) +
           ", $L_{constriction}=$" + str(l_constriction)  +", $w_1=$" + str(w1) +", $h_1=$" + str(h1) + ", $w_2=$" + str(w2) +
           ", $h_2=$" + str(h2) )
-plt.savefig(outfile + "_T0" + ".pdf", bbox_inches="tight")
+plt.savefig(file_name + "_T0" + ".pdf", bbox_inches="tight")
 plt.show()
 
 
@@ -231,5 +245,5 @@ plt.ylim([0, max(G)])
 plt.title("$T=$" + str(T) + "$, B_\perp =$" + str(B_perp) + "$, B =$" + str(B_par) + ", $L_{leads}=$" + str(l_lead) + ", $L_{cones}=$" + str(l_cone) +
           ", $L_{constriction}=$" + str(l_constriction)  +", $w_1=$" + str(w1) +", $h_1=$" + str(h1) + ", $w_2=$" + str(w2) +
           ", $h_2=$" + str(h2))
-plt.savefig(outfile + "_Thermal" + ".pdf", bbox_inches="tight")
+plt.savefig(file_name + "_Thermal" + ".pdf", bbox_inches="tight")
 plt.show()
