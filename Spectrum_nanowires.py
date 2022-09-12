@@ -17,7 +17,7 @@ from functions import Conductance
 hbar = 1                            # Planck's constant
 e = 1.6e-19                         # Electron charge in C
 vf = 330                            # Fermi velocity in meV nm
-w, h = 120, 20                      # Width and height of the wire in nm
+w, h = 150, 15                      # Width and height of the wire in nm
 P = (2 * w) + (2 * h)               # Perimeter of the wire
 r = w / (w + h)                     # Useful ratio
 B = 0                               # Perpendicular magnetic field in T
@@ -26,7 +26,7 @@ V_bias = np.linspace(-25, 25, 100)  # Bias voltage (fermi energy) in mV
 
 # Declarations
 k = np.linspace(-10, 10, 5000)                  # Momentum in 1/nm
-l_cutoff = 10                                   # Cutoff for the number of angular momentum modes that we consider
+l_cutoff = 30                                   # Cutoff for the number of angular momentum modes that we consider
 modes = np.arange(-l_cutoff, l_cutoff+1)        # Angular momentum modes
 n_k = int(len(k))                               # Number of k modes
 n_modes = int(len(modes))                       # Number of l modes
