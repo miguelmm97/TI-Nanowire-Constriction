@@ -32,7 +32,6 @@ x2 = x1 + l_cone                   # Initial position of the constriction
 x3 = x2 + l_constriction           # Final position of the constriction
 x4 = x3 + l_cone                   # Start of the final lead
 x5 = x4 + l_lead                   # End of the nanostructure
-print(x0, x1, x2, x3, x4, x5)
 L = x5 - x0                        # Length of the nanowire in nm
 slope_w = (w2 - w1) / (x2 - x1)    # Slope of the width
 slope_h = (h2 - h1) / (x2 - x1)    # Slope of the height
@@ -96,19 +95,21 @@ sigma_z = np.array([[1, 0], [0, -1]])    # Pauli z
 
 
 # Thermal average parameters
-T = 4                                                          # Temperature in K
-thermal_interval = 20                                           # Energy range above and below mu that we include on the thermal average in meV
+T =30                                                            # Temperature in K
+thermal_interval = 20                                           # Energy range above and below mu that we include on the thermal average in meV(should be > kbT)
 sample_points_therm = int(thermal_interval / dE)                # Points included in the integration above and below
 E_F_thermal = E_F[sample_points_therm: -sample_points_therm]    # Range over which we calculate the thermal conductance
 G_therm = np.zeros((len(E_F_thermal), ))                        # Thermal conductance vector
 
 
 # Finite voltage bias parameters
-eVb = 10                                                  # Finite voltage bias
-sample_points_bias = int(eVb / dE)                        # Points included in the integration above and below
+eVb,T_bias = 25, 0                                        # Finite voltage bias and temperature in meV and K
+thermal_interval_bias = 20                                # Energy range above and below mu that we include on the thermal average in meV
+bias_interval = 0.5 * eVb + thermal_interval_bias         # Combined thermal and bias energy range above and below mu included in the bias calculation
+sample_points_bias = int(bias_interval / dE)              # Points included in the integration above and below
 E_F_bias = E_F[sample_points_bias: -sample_points_bias]   # Range over which we calculate the thermal conductance
 G_bias = np.zeros((len(E_F_bias), ))                      # Thermal conductance vector
-
+print(bias_interval, sample_points_bias)
 
 # Loading possible data
 file_name ="G_" + str(B_perp) + str(B_par) + str(w1) + str(w2) + str(h1) + str(h2) + ".h5"
@@ -177,7 +178,7 @@ if calculate_G == 1:
 #%% Thermal-averaged conductance at low temperatures
 
 for i, energy in enumerate(E_F_thermal):
-    print(str(i) + "/" + str(len(E_F_thermal)))
+    # print(str(i) + "/" + str(len(E_F_thermal)))
     j = i + sample_points_therm                                                       # Index in the complete E_f vector
     integration_interval = E_F[j - sample_points_therm: j + sample_points_therm]      # Energy range for integration
     G_interval = G[j - sample_points_therm: j + sample_points_therm]                  # Conductance range for integration
@@ -187,12 +188,12 @@ for i, energy in enumerate(E_F_thermal):
 #%% Finite voltage bias conductance
 
 for i, energy in enumerate(E_F_bias):
-    print(str(i) + "/" + str(len(E_F_bias)))
-    j = i + sample_points_bias                                                       # Index in the complete E_f vector
-    mu1, mu2 = E_F[j] + (0.5 * eVb), E_F[j] - (0.5 * eVb)                            # Chemical potentials
-    integration_interval = E_F[j - sample_points_bias: j + sample_points_bias]       # Energy range for integration
-    G_interval = G[j - sample_points_bias: j + sample_points_bias]                   # Conductance range for integration
-    G_bias[i] = finite_voltage_bias(0, mu1, mu2, integration_interval, G_interval)   # Thermal averaged conductance
+    # print(str(i) + "/" + str(len(E_F_bias)))
+    j = i + sample_points_bias                                                            # Index in the complete E_f vector
+    mu1, mu2 = E_F[j] + (0.5 * eVb), E_F[j] - (0.5 * eVb)                                 # Chemical potentials
+    integration_interval = E_F[j - sample_points_bias: j + sample_points_bias]            # Energy range for integration
+    G_interval = G[j - sample_points_bias: j + sample_points_bias]                        # Conductance range for integration
+    G_bias[i] = finite_voltage_bias(T_bias, mu1, mu2, integration_interval, G_interval)   # Thermal averaged conductance
 
 
 #%% Output data
@@ -217,7 +218,7 @@ plt.plot(E_F, np.repeat(1, len(E_F)), '-.k', linewidth=1, alpha=0.3)
 plt.plot(E_F, np.repeat(3, len(E_F)), '-.k', linewidth=1, alpha=0.3)
 plt.plot(E_F, np.repeat(5, len(E_F)), '-.k', linewidth=1, alpha=0.3)
 plt.plot(E_F, np.repeat(7, len(E_F)), '-.k', linewidth=1, alpha=0.3)
-plt.legend(("T=0K", "Thermal Average " + str(T) + "K")) # , "Vb=" + str(eVb) + " meV"))
+plt.legend(("T=0K", "Thermal Average " + str(T) + "K", "Vb=" + str(eVb) + " meV, " + "T="+ str(T) + "K"))
 
 plt.xlabel("$E_F$ (meV)")
 plt.ylabel("$G/G_Q$")
