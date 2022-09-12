@@ -1,0 +1,7 @@
+*.idea/
+*.h5
+*_pycache_/
+*.py[cod]
+*.pdf
+*.png
+
