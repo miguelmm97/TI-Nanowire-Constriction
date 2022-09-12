@@ -2,20 +2,33 @@
 import numpy as np
 from numpy.linalg import inv
 
+def f_FD(E, mu, T):
 
-def Conductance(E, Vg, V_bias):
-    n_bands = len(E[:, 0])
-    conductance = 0.0000000001
-    E = E + Vg
-    for index in range(n_bands):
-        if max(E[index, :]) > V_bias > min(E[index, :]):
-            conductance = conductance + 1
+    # Fermi-Dirac distribution
+    k_B = 8.617333262e-2  # [meV/K]
 
-    return conductance
+    if T != 0:
+        beta = 1 / (k_B * T)
+        return 1 / (np.exp(beta * (E - mu)) + 1)
+    else:
+        return np.heaviside(mu - E, 1)
+
+def df_FD(E, mu, T):
+
+    # Derivative of the Fermi-Dirac distribution
+    k_B = 8.617333262e-2  # [meV/K]
+    beta = 1 / (k_B * T)
+
+    if T != 0:
+        return - beta * np.exp(beta * (E - mu)) / (np.exp(beta * (E - mu)) + 1) ** 2
+    else:
+        raise ValueError("T=0 limit undefined unless inside an integral!")
 
 def transfer_to_scattering(transfer_matrix, n_modes):
 
     # Transform from the transfer matrix to the scattering matrix
+    # transfer_matrix: Transfer matrix to translate to scattering
+    # n_modes: Number of modes contributing to transport (N_states/2 because spin momentum locking)
 
     inv_T = transfer_matrix[0: n_modes, 0: n_modes]  # t^\dagger ^(-1)
     inv_Tp = transfer_matrix[n_modes:, n_modes:]     # t' ^(-1)
@@ -34,6 +47,8 @@ def transfer_to_scattering(transfer_matrix, n_modes):
 def scat_product(s1, s2, n_modes):
 
     # Product combining two scattering matrices
+    # s1, s2: Scattering matrices to combine
+    # n_modes: Number of modes contributing to transport (N_states/2 because spin momentum locking)
 
     if s1.shape != s2.shape:
         raise ValueError(" Different size for scattering matrices")
@@ -55,6 +70,7 @@ def scat_product(s1, s2, n_modes):
 def transport_checks(n_modes, transfer_matrix=None, scat_matrix=None):
 
     # Check the conservation of current and the unitarity condition for transfer/scattering matrices
+    # n_modes: Number of modes contributing to transport (N_states/2 because spin momentum locking)
 
     sigma_z = np.array([[1, 0], [0, -1]])  # Pauli z
 
@@ -74,5 +90,34 @@ def transport_checks(n_modes, transfer_matrix=None, scat_matrix=None):
         t_dagger, r_dagger = np.conj(t.T), np.conj(r.T)
         print(np.allclose(n_modes-np.trace(r_dagger @ r), np.trace(t_dagger @ t)))
 
+def thermal_average(T, mu, E, G):
 
+    # Compute the thermal average of a given conductance
+    # T: Temperature
+    # mu: Chemical potential
+    # E: Range of energies where we want to integrate.
+    # G: Conductance for that range of energies
 
+    integrand = - G * df_FD(E, mu, T)
+    return np.trapz(integrand, E)
+
+def finite_voltage_bias(T, mu1, mu2, E, G):
+
+    # Compute conductance in a finite Voltage bias
+    # T: Temperature
+    # mu1, mu2: Chemical potential in the left and right leads
+    # E: Range of energies where we want to integrate.
+    # G: Conductance for that range of energies
+
+    integrand = G * (f_FD(E, mu1, T) - f_FD(E, mu2, T))
+    return np.trapz(integrand, E) / (mu1 - mu2)
+
+def Conductance(E, Vg, V_bias):
+    n_bands = len(E[:, 0])
+    conductance = 0.0000000001
+    E = E + Vg
+    for index in range(n_bands):
+        if max(E[index, :]) > V_bias > min(E[index, :]):
+            conductance = conductance + 1
+
+    return conductance
