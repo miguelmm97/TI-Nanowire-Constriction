@@ -3,7 +3,6 @@ import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
 
-from functions import Conductance
 # %% Rectangular nanowire with magnetic field (translation invariant)
 
 # Constants and set up of the model
@@ -21,9 +20,9 @@ B_par = n_flux * phi0 / ((w * h) * nm ** 2)     # Parallel magnetic field in T
 
 # Declarations
 k = np.linspace(-10, 10, 5000)                  # Momentum in 1/nm
+n_k = int(len(k))                               # Number of k modes
 l_cutoff = 30                                   # Cutoff for the number of angular momentum modes that we consider
 modes = np.arange(-l_cutoff, l_cutoff+1)        # Angular momentum modes
-n_k = int(len(k))                               # Number of k modes
 n_modes = int(len(modes))                       # Number of l modes
 n_s = 2                                         # Spin components
 energy = np.zeros((int(n_modes * n_s), n_k))    # Energy matrix declaration
@@ -36,7 +35,7 @@ sigma_y = np.array([[0, -1j], [1j, 0]])         # Pauli y
 
 # %% Main code
 
-# Hamiltonian (we work on the |k,l,s> basis) and in units of hbar=1
+## Hamiltonian (we work on the |k,l,s> basis) and in units of hbar=1
 
 # Off-diag term: e vf < n | A_x | m >
 for index1 in range(n_modes):
@@ -56,7 +55,7 @@ for index in range(n_k):
     ham_x = np.kron(np.diag(aux_k), sigma_x)                  # hbar vf k * sigma_x
     Hamiltonian = ham_x + ham_y + ham_offdiag                 # H(k)
 
-    # Energy bands
+    ## Energy bands
     energy[:, index] = np.linalg.eigvalsh(Hamiltonian)        # E(k)
     idx = energy[:, index].argsort()                          # Ordering the energy bands at k
     energy[:, index] = energy[idx, index]                     # Ordered E(k)
