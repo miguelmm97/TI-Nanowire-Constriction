@@ -19,7 +19,7 @@ w, h = 150, 15                       # Width and height of the wire in nm
 L = 100                             # Length of the nanowire
 E_F = np.linspace(-120, 120, 1500)  # Fermi energy
 dE = E_F[1] - E_F[0]                # Separation in energies
-B = 0                               # Perpendicular magnetic field in T
+B = 3                               # Perpendicular magnetic field in T
 
 # Declarations
 k_vec = np.linspace(-10, 10, 5000)                 # Momentum in 1/nm
