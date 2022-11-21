@@ -238,7 +238,7 @@ def spectrum(H):
 
     return energy, eigenstates
 
-def Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, kz, t, lamb, lamb_z, eps, flux):
+def Ham_nw_Bi2Se3_1(n_sites, n_orb, L_x, L_y, x, y, kz, t, lamb, lamb_z, eps, flux, periodicity_x=False, periodicity_y=False):
     # Builds the model Hamiltonian of a translationally-invariant Bi2Se3 nanowire in OBC at momentum kz.
     # n_sites: Number of sites of the lattice
     # n_orb: Number of orbitals of the model
@@ -246,14 +246,15 @@ def Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, kz, t, lamb, lamb_z, eps, flux
     # x, y: Position of the sites on each direction
     # kz: Momentum alongside the nanowire
     # t, lamb, lamb_z, eps: Parameters of the model
-    # flux: Magnetic flux through the cross section in units of the flux quantum
+    # flux: Magnetic flux through the cross-section in units of the flux quantum
+    # periodicity_xy: Trye if we want any of these directions to be periodic
 
     # Declarations
     n_states = n_sites * n_orb                                      # Number of basis states
-    cross_section = (L_x - 1) * (L_y - 1)                           # Area of the xy crosssection
+    cross_section = (L_x - 1) * (L_y - 1)                           # Area of the xy cross-section
     transx = xtranslation(x, y, L_x, L_y)                           # List of neighbours in x direction
     transy = ytranslation(x, y, L_x, L_y)                           # List of neighbours in y direction
-    H_offdiag = np.zeros((n_states, n_states), dtype='complex_')    # Hamiltonian for the xy cross section
+    H_offdiag = np.zeros((n_states, n_states), dtype='complex_')    # Hamiltonian for the xy cross-section
 
     # Block hoppings along x, y
     block_x = (1j * 0.5 * lamb * np.kron(sigma_z, sigma_y)) - t * np.kron(sigma_x, sigma_0)
@@ -270,14 +271,20 @@ def Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, kz, t, lamb, lamb_z, eps, flux
         coly = transy[site] * n_orb
 
         # Hopping along x
-        if (site + 1) % L_x != 0:
+        if periodicity_x:
             H_offdiag[row: row + n_orb, colx: colx + n_orb] = block_x * peierls[site]
+        else:
+            if (site + 1) % L_x != 0:
+                H_offdiag[row: row + n_orb, colx: colx + n_orb] = block_x * peierls[site]
 
-            # Hopping along y
-        if (site + L_x) < n_sites:
+        # Hopping along y
+        if periodicity_y:
             H_offdiag[row: row + n_orb, coly: coly + n_orb] = block_y
+        else:
+            if (site + L_x) < n_sites:
+                H_offdiag[row: row + n_orb, coly: coly + n_orb] = block_y
 
-            # Hamiltonian
+    # Hamiltonian
     H_diag = np.kron(np.eye(n_sites), block_z)
     H_offdiag = H_offdiag + np.conj(H_offdiag.T)
     H = H_diag + H_offdiag
@@ -285,6 +292,60 @@ def Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, kz, t, lamb, lamb_z, eps, flux
     return H
 
 
+def Ham_nw_Bi2Se3_2(n_sites, n_orb, L_x, L_y, x, y, kz, C, M, D1, D2, B1, B2, A1, A2, flux, periodicity_x=False, periodicity_y=False):
+    # Builds the model Hamiltonian of a translationally-invariant Bi2Se3 nanowire in OBC at momentum kz.
+    # n_sites: Number of sites of the lattice
+    # n_orb: Number of orbitals of the model
+    # L_x, L_y: System size on each direction
+    # x, y: Position of the sites on each direction
+    # kz: Momentum alongside the nanowire
+    # A1, A2, B1, B2, C, D1, D2, M: Parameters of the model
+    # flux: Magnetic flux through the cross-section in units of the flux quantum
+    # periodicity_xy: True if we want any of these directions to be periodic
+
+    # Declarations
+    n_states = n_sites * n_orb                                      # Number of basis states
+    cross_section = (L_x - 1) * (L_y - 1)                           # Area of the xy cross-section
+    transx = xtranslation(x, y, L_x, L_y)                           # List of neighbours in x direction
+    transy = ytranslation(x, y, L_x, L_y)                           # List of neighbours in y direction
+    H_offdiag = np.zeros((n_states, n_states), dtype='complex_')    # Hamiltonian for the xy cross-section
+
+    # Block hoppings along x, y
+    block_z = ((C + 4 * D2) + 2 * D1 * (1 - np.cos(kz))) * np.kron(sigma_0, sigma_0) \
+            + ((M - 4 * B2) + 2 * B1 * (1 - np.cos(kz))) * np.kron(sigma_z, sigma_0) \
+            + A1 * np.sin(kz) * np.kron(sigma_z, sigma_z)
+    block_y = D2 * np.kron(sigma_0, sigma_0) - B2 * np.kron(sigma_z, sigma_0) - 0.5 * 1j * A2 * np.kron(sigma_x, sigma_x)
+    block_x = D2 * np.kron(sigma_0, sigma_0) - B2 * np.kron(sigma_z, sigma_0) - 0.5 * 1j * A2 * np.kron(sigma_x, sigma_y)
+    peierls = np.exp((2 * pi * 1j / cross_section) * flux * y)
+
+    # Hopping along x and y
+    for site in range(0, n_sites):
+
+        # Sites connected by the hamiltonian
+        row = site * n_orb
+        colx = transx[site] * n_orb
+        coly = transy[site] * n_orb
+
+        # Hopping along x
+        if periodicity_x:
+            H_offdiag[row: row + n_orb, colx: colx + n_orb] = block_x * peierls[site]
+        else:
+            if (site + 1) % L_x != 0:
+                H_offdiag[row: row + n_orb, colx: colx + n_orb] = block_x * peierls[site]
+
+        # Hopping along y
+        if periodicity_y:
+            H_offdiag[row: row + n_orb, coly: coly + n_orb] = block_y
+        else:
+            if (site + L_x) < n_sites:
+                H_offdiag[row: row + n_orb, coly: coly + n_orb] = block_y
+
+    # Hamiltonian
+    H_diag = np.kron(np.eye(n_sites), block_z)
+    H_offdiag = H_offdiag + np.conj(H_offdiag.T)
+    H = H_diag + H_offdiag
+
+    return H
 
 
 
