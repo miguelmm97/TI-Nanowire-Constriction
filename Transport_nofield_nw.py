@@ -16,7 +16,7 @@ e = 1.6e-19                                                     # Electron charg
 G_q = ((e ** 2) / hbar)                                         # Conductance quantum
 vf = 330                                                        # Fermi velocity in meV nm
 w, h = 150, 15                                                  # Width and height of the wire in nm
-L = 200                                                         # Length of the nanowire
+L = 800                                                         # Length of the nanowire
 P = (2 * w) + (2 * h)                                           # Perimeter of the wire
 E_F = np.linspace(-120, 120, 3000)                              # Fermi energy
 

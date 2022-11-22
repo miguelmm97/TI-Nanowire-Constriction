@@ -17,22 +17,23 @@ phi0 = 2 * pi * hbar / e                                        # Quantum of flu
 G_q = ((e ** 2) / hbar)                                         # Conductance quantum
 vf = 330                                                        # Fermi velocity in meV nm
 w, h = 150, 15                                                  # Width and height of the wire in nm
-L = 200                                                         # Length of the nanowire
+L = 1000                                                         # Length of the nanowire
 P = (2 * w) + (2 * h)                                           # Perimeter of the wire
-E_F = np.linspace(-40, 40, 1000)                                # Fermi energy
-B_perp = 0                                                      # Perpendicular magnetic field in T
-n_flux = 0.5                                                    # Number of flux quanta threaded through the wire
+E_F = np.linspace(-0, 120, 1000)                                # Fermi energy
+B_perp = 4                                                      # Perpendicular magnetic field in T
+n_flux = 0                                                      # Number of flux quanta threaded through the wire
 B_par = n_flux * phi0 / ((w * h) * nm ** 2)                     # Parallel magnetic field in T
 
 
 # Declarations
 l_cutoff = 30                                                   # Cutoff for the number of angular momentum modes that we consider
 modes = np.arange(-l_cutoff, l_cutoff+1)                        # Angular momentum modes
+n_modes = len(modes)                                            # NUmber of modes
 n_s = 2                                                         # Spin components
 M_offdiag = np.zeros([n_modes, n_modes], complex)               # Mode mixing matrix for the vector potential
 G = np.zeros((len(E_F), ))                                      # Conductance vector
 G_an = np.zeros((len(E_F), ))                                   # Analytical conductance vector
-L_grid = 1000                                                   # Number of points in the position grid
+L_grid = 200                                                    # Number of points in the position grid
 dx = L / L_grid                                                 # Discretisation step of the position grid
 r = w / (w + h)                                                 # Useful parameter to define the vector potential
 dE = E_F[1] - E_F[0]                                            # Separation in energies
@@ -117,8 +118,8 @@ plt.plot(E_F, np.repeat(2, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(4, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(6, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(8, len(E_F)), '-.k')
-plt.xlim(-30, 30)
-plt.ylim(0, 6)
+plt.xlim(0, 120)
+plt.ylim(0, 7)
 plt.legend(("Numerical", "Analytical", "Thermal Average " + str(T) + "K")) # , "Vb=" + str(eVb) + " meV"))
 plt.xlabel("$E_F$ (meV)")
 plt.ylabel("$G/G_Q$")

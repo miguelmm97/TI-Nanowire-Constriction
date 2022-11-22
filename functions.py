@@ -137,7 +137,7 @@ def finite_voltage_bias(T, mu1, mu2, E, G):
     integrand = G * (f_FD(E, mu1, T) - f_FD(E, mu2, T))
     return np.trapz(integrand, E) / (mu1 - mu2)
 
-def M_Ax(modes, w, h, B_perp, dx):
+def M_Ax(modes, w, h, dx, B_perp=0):
 
     # Calculates the Ax term (mode mixing) in the exponent of the transfer matrix from x to x + dx
     # modes: Vector of angular momentum modes considered for transport
@@ -160,7 +160,7 @@ def M_Ax(modes, w, h, B_perp, dx):
 
     return np.kron(sigma_0, M) * dx
 
-def M_theta(modes, R, dR, w, h, B_par, dx):
+def M_theta(modes, R, dR, w, h, dx, B_par=0):
 
     # Calculates the angular momentum term (dtheta + Atheta) in the exponent of the transfer matrix from x to x + dx
     # modes: Vector of angular momentum modes considered for transport
@@ -185,12 +185,15 @@ def M_EV(modes, dR, E, vf, dx, V=None):
     # dx: Length along which the transfer calculation is done
     # V: External potential matrix V_nm, that can be disorder, gate, ...etc
 
+    if V is None:
+        V = np.zeros(len(modes))
+
     geom = np.sqrt(1 + dR ** 2)                        # Geometric factor
     M = 1j * geom * (E * np.eye(len(modes)) + V) / vf  # i ( E delta_nm + V_nm) / vf term
 
     return np.kron(sigma_z, M) * dx
 
-def transfer_matrix(modes, w, h, R, dR, dx, E, vf, V=None, B_par=None, B_perp=None):
+def transfer_matrix(modes, w, h, R, dR, dx, E, vf, V=None, B_par=0, B_perp=0):
 
     # Calculates the transfer matrix from x to x+dx for a TI nanostructure based on its effective surface theory,
     # assuming a rectangular cross-section that can be effectively treated as cylindrical.
@@ -205,10 +208,46 @@ def transfer_matrix(modes, w, h, R, dR, dx, E, vf, V=None, B_par=None, B_perp=No
     # B_par: Magnetic field threaded along the cross-section of the nanostructure
     # B_perp: Magnetic field perpendicular to the cross-section of the nanostructure
 
-    T = expm(M_EV(modes, dR, E, vf, dx, V) + M_theta(modes, R, dR, w, h, B_par, dx) + M_Ax(modes, w, h, B_perp, dx))
+    T = expm(M_EV(modes, dR, E, vf, dx, V) + M_theta(modes, R, dR, w, h, dx, B_par=B_par) + M_Ax(modes, w, h, dx,  B_perp=B_perp))
 
     return T
 
+
+
+#%% Geometry of the nanostructure
+def step(x1, x2, sigma):
+    # Smoothened step function theta(x1-x2)
+    return 0.5 + (1 / pi) * np.arctan(sigma * (x1 - x2))
+
+def geom_nc(x, x1, x2, r1, r2, sigma):
+    # x1, r1: Initial widest part
+    # x2, r2: Final narrow part
+    return r1 + (r2 - r1) * step(x, x2, sigma) + ((r2 - r1) / (x2 - x1)) * (x - x1) * (step(x, x1, sigma) - step(x, x2, sigma))
+
+def geom_cons(x, x1, x2, x3, r1, r2, sigma):
+    # x1, r1: Initial lead
+    # x2, r2: Constriction
+    # x3: Start of the second cone
+    return geom_nc(x, x1, x2, r1, r2, sigma) + geom_nc(-x + x2 + x3, x1, x2, r1, r2, sigma) - r2
+
+def constriction(L_lead, L_nc, L_cons, h_lead, w_lead, h_cons, w_cons, sigma, n_x):
+    # Geometry of a symmetric rectangular constriction with smoothing sigma and n_x points
+
+    x0 = 0
+    x1 = x0 + L_lead
+    x2 = x1 + L_nc
+    x3 = x2 + L_cons
+    x4 = x3 + L_nc
+    x5 = x4 + L_lead
+    L = x5 - x0
+    L_grid = np.linspace(x0, x5, n_x)                          # x grid
+    dx = L / n_x                                               # Step
+    h = geom_cons(L_grid, x1, x2, x3, h_lead, h_cons, sigma)   # Height
+    w = geom_cons(L_grid, x1, x2, x3, w_lead, w_cons, sigma)   # Width
+    R = (w + h) / pi                                           # Radius
+    dR = np.diff(R) / dx                                       # Derivative radius
+
+    return L_grid, dx, h, w, R, dR
 
 
 #%% Bi2Se3 Band structure
@@ -291,7 +330,6 @@ def Ham_nw_Bi2Se3_1(n_sites, n_orb, L_x, L_y, x, y, kz, t, lamb, lamb_z, eps, fl
 
     return H
 
-
 def Ham_nw_Bi2Se3_2(n_sites, n_orb, L_x, L_y, x, y, kz, C, M, D1, D2, B1, B2, A1, A2, flux, periodicity_x=False, periodicity_y=False):
     # Builds the model Hamiltonian of a translationally-invariant Bi2Se3 nanowire in OBC at momentum kz.
     # n_sites: Number of sites of the lattice
@@ -346,6 +384,11 @@ def Ham_nw_Bi2Se3_2(n_sites, n_orb, L_x, L_y, x, y, kz, C, M, D1, D2, B1, B2, A1
     H = H_diag + H_offdiag
 
     return H
+
+
+
+
+
 
 
 

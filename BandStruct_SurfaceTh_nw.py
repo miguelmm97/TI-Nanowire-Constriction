@@ -11,10 +11,10 @@ nm = 1e-9                                       # Conversion from nm to m
 e = 1.6e-19                                     # Electron charge in C
 phi0 = 2 * pi * hbar / e                        # Quantum of flux
 vf = 330                                        # Fermi velocity in meV nm
-w, h = 150, 15                                  # Width and height of the wire in nm
+w, h = 25, 25                                   # Width and height of the wire in nm
 P = (2 * w) + (2 * h)                           # Perimeter of the wire
 r = w / (w + h)                                 # Useful ratio
-B_perp = 0                                      # Perpendicular magnetic field in T
+B_perp = 10                                     # Perpendicular magnetic field in T
 n_flux = 0                                      # Number of flux quanta threaded through the wire
 B_par = n_flux * phi0 / ((w * h) * nm ** 2)     # Parallel magnetic field in T
 
@@ -64,11 +64,11 @@ for index in range(n_k):
 #%% Plots and figures
 # E(k)
 for index in range(int(n_modes * n_s)):
-    plt.plot(k, energy[index, :], ".b", markersize=2)
+    plt.plot(k, energy[index, :], "b", markersize=2)
 plt.xlabel("$k(nm^{-1})$")
 plt.ylabel("$E(meV)$")
-plt.xlim(-0.5, 0.5)
-plt.ylim(-60, 60)
+plt.xlim(-0.4, 0.4)
+plt.ylim(-100, 100)
 plt.title("$B_\perp =$" + str(B_perp))
 # plt.legend(string_legend)
 plt.show()

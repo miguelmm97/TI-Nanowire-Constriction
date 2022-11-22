@@ -3,7 +3,7 @@
 import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
-from functions import transfer_to_scattering, scat_product,transfer_matrix
+from functions import transfer_to_scattering, scat_product,transfer_matrix, constriction
 
 
 #%% Parameters
@@ -16,57 +16,57 @@ phi0 = 2 * pi * hbar / e    # Quantum of flux
 
 # Parameters
 vf = 330                                        # Fermi velocity in meV nm
-E_F = np.linspace(-0.01, 0.01, 100)             # Fermi energy
-B_perp = 0                                      # Perpendicular magnetic field in T
+E_F = np.linspace(0, 120, 500)                  # Fermi energy
+B_perp = 4                                      # Perpendicular magnetic field in T
 B_par = 0                                       # Parallel magnetic field in T
 
 
 # Geometry of the nanostructure
-def h(x):
-    return
-def w(x):
-    return
-def R(x):
-    return
-def dR(x):
-    return
-
+n_x = 100
+sigma = 0.01
+# L_lead, L_nc, L_cons = 100, 549.7, (800 - 549.7)
+# r_lead = 156.6
+# r_cons = r_lead / 2
+# h_lead = 2 * pi * r_lead / 4
+# w_lead = h_lead
+# h_cons = 2 * pi * r_cons / 4
+# w_cons = h_cons
+L_lead, L_nc, L_cons = 200, 200, 200
+h_lead, w_lead = 150, 15
+h_cons, w_cons = 150, 15
+L_grid, dx, h, w, R, dR = constriction(L_lead, L_nc, L_cons, h_lead, w_lead, h_cons, w_cons, sigma, n_x)
 
 # Definitions
-l_cutoff = 40                                      # Cutoff for the number of angular momentum modes that we consider
+l_cutoff = 30                                      # Cutoff for the number of angular momentum modes that we consider
 modes = np.arange(-l_cutoff, l_cutoff+1)           # Angular momentum modes
 n_modes = int(len(modes))                          # Number of l modes
-n_x = 100                                          # Number of x intervals
-L_grid = np.linspace(x1, x2, n_x)                  # Grid for x direction
-dx = L / n_x                                       # Transfer step
 G = np.zeros((len(E_F), ))                         # Conductance vector
 
-
 # Plot of the geometry
-plt.plot(L_grid, radius(L_grid), 'r')
-plt.plot(L_grid, width(L_grid), '.-b')
-plt.plot(L_grid, width(L_grid), '--m')
+plt.plot(L_grid, R, 'r')
+plt.plot(L_grid, w, '-b')
+plt.plot(L_grid, h, '-m')
 plt.xlabel("$x(nm)$")
-plt.ylabel("$(nm)$")
-plt.xlim([x1, x2])
-plt.legend(("$a(x)$", "$w(x)$", "$h(x)$"))
+plt.ylabel("$R(nm)$")
+plt.xlim([0, L_grid[-1]])
+plt.ylim([0, h_lead])
+plt.legend(("$R(x)$", "$w(x)$", "$h(x)$"))
 plt.title("Geometry of the nanostructure")
 plt.show()
-
 #%% Transport calculation
 
 for i, E in enumerate(E_F):
     print(str(i) + "/" + str(len(E_F)-1))
 
     # Propagation of the scattering matrix
-    for j, x in enumerate(L_grid):
+    for j, x in enumerate(L_grid[:-1]):
 
-        transfer_matrix = transfer_matrix(modes, w(x), h(x), R(x), dR(x), dx, E, vf, B_par=B_par, B_perp=B_perp)  # Transfer matrix
+        T = transfer_matrix(modes, w[j], h[j], R[j], dR[j], dx, E, vf, B_par=B_par, B_perp=B_perp)  # Transfer matrix
 
         if j == 0:
-            scat_matrix = transfer_to_scattering(transfer_matrix, n_modes)     # Initial scattering matrix
+            scat_matrix = transfer_to_scattering(T, n_modes)     # Initial scattering matrix
         else:
-            scat_matrix_dx = transfer_to_scattering(transfer_matrix, n_modes)  # Scattering matrix for dx
+            scat_matrix_dx = transfer_to_scattering(T, n_modes)  # Scattering matrix for dx
             scat_matrix = scat_product(scat_matrix, scat_matrix_dx, n_modes)   # Propagating the scattering matrix
 
 
@@ -78,14 +78,13 @@ for i, E in enumerate(E_F):
 
 # Conductance
 plt.plot(E_F, G, '-b', linewidth=1)
-plt.plot(E_F, np.repeat(1, len(E_F)), '-.k', linewidth=1, alpha=0.3)
-plt.plot(E_F, np.repeat(3, len(E_F)), '-.k', linewidth=1, alpha=0.3)
-plt.plot(E_F, np.repeat(5, len(E_F)), '-.k', linewidth=1, alpha=0.3)
-plt.plot(E_F, np.repeat(7, len(E_F)), '-.k', linewidth=1, alpha=0.3)
+for j in range(10):
+    plt.plot(E_F, np.repeat(j, len(E_F)), '-.k', linewidth=1, alpha=0.3)
+
 
 plt.xlabel("$E_F$ (meV)")
 plt.ylabel("$G/G_Q$")
 plt.xlim([0, E_F[-1]])
-plt.ylim([0, 6])
-plt.title("$B_\perp =$" + str(B_perp) + "$B =$" + str(B_par) + ", $L=$" + str(L))
+plt.ylim([0, 7])
+plt.title("$B_\perp =$" + str(B_perp) + "$B =$" + str(B_par) + ", $L=$" + str(L_grid[-1]))
 plt.show()
