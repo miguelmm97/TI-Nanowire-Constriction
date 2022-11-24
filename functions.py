@@ -106,10 +106,15 @@ def transport_checks(n_modes, transfer_matrix=None, scat_matrix=None):
         print(np.allclose(n_modes-np.trace(r_dagger @ r), np.trace(t_dagger @ t)))
 
 def transport_calculation(n_modes, transfer_matrix, scat_matrix0, L_grid):
-    # Performs the transport calculation
+    # Performs the transport calculation (asuming no change in the transfer matrix with position)
     scat_matrix = scat_matrix0  # Scattering matrix
+
     for pos in range(L_grid):
-        scat_matrix = scat_product(scat_matrix, scat_matrix0, n_modes)  # Propagating the scattering matrix
+        if pos == 0:
+            scat_matrix = scat_matrix0
+        else:
+            scat_matrix = scat_product(scat_matrix, scat_matrix0, n_modes)  # Propagating the scattering matrix
+
     t = scat_matrix[n_modes:, 0: n_modes]  # Transmission matrix
     t_dagger = np.conj(t.T)  # Conjugate transmission matrix
     G = np.trace(t_dagger @ t)  # Conductance / Gq
@@ -189,7 +194,7 @@ def M_EV(modes, dR, E, vf, dx, V=None):
         V = np.zeros(len(modes))
 
     geom = np.sqrt(1 + dR ** 2)                        # Geometric factor
-    M = 1j * geom * (E * np.eye(len(modes)) + V) / vf  # i ( E delta_nm + V_nm) / vf term
+    M = 1j * geom * (E * np.eye(len(modes)) - V) / vf  # i ( E delta_nm + V_nm) / vf term
 
     return np.kron(sigma_z, M) * dx
 
@@ -208,7 +213,7 @@ def transfer_matrix(modes, w, h, R, dR, dx, E, vf, V=None, B_par=0, B_perp=0):
     # B_par: Magnetic field threaded along the cross-section of the nanostructure
     # B_perp: Magnetic field perpendicular to the cross-section of the nanostructure
 
-    T = expm(M_EV(modes, dR, E, vf, dx, V) + M_theta(modes, R, dR, w, h, dx, B_par=B_par) + M_Ax(modes, w, h, dx,  B_perp=B_perp))
+    T = expm(M_EV(modes, dR, E, vf, dx, V=V) + M_theta(modes, R, dR, w, h, dx, B_par=B_par) + M_Ax(modes, w, h, dx, B_perp=B_perp))
 
     return T
 
