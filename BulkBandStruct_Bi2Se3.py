@@ -7,17 +7,19 @@ from functions import spectrum, Ham_nw_Bi2Se3_1, Ham_nw_Bi2Se3_2, xtranslation, 
 
 # Parameters of the model
 n_orb = 4                                   # Number of orbitals per site
+Arms = 0.1                                     # From armstrongs to nm
 lamb = 150                                  # meV
 eps = 4 * lamb                              # meV
 lamb_z = 2 * lamb                           # meV
 t = lamb                                    # meV
 flux = 0.0                                  # Flux through the cross-section in units of the flux quantum
 kz = np.linspace(-0.1, 0.1, 500)            # Momentum space
-A1, A2, B1, B2, C, D1, D2, M = 2200, 4100, 10000, 56600, -6.8, 1300, 19600, 280   # meV
-
+A1, A2 = 2200 * Arms, 4100 * Arms           # meV
+B1, B2, D1, D2 = 10000 * (Arms ** 2), 56600 * (Arms ** 2), 1300 * (Arms ** 2), 19600 * (Arms ** 2)  # meV
+C, M = -6.8, 280                            # meV
 
 # Lattice definition
-L_x, L_y = 10, 5                           # In units of a (average bond length)
+L_x, L_y = 10, 10                           # In units of a (average bond length)
 n_sites = int(L_x * L_y)                    # Number of sites in the lattice
 n_states = n_sites * n_orb                  # Number of basis states
 sites = np.arange(0, L_x * L_y)             # Array with the number of each site
@@ -25,7 +27,7 @@ x = sites % L_x                             # x position of the sites
 y = sites // L_x                            # y position of the sites
 
 # State that we want to show in the figure
-band = 1                                    # Band that we are plotting
+band = 0                                    # Band that we are plotting
 momentum = 300                             # Momentum index to plot the wavefunctions
 
 # Declarations
@@ -41,7 +43,7 @@ transy = ytranslation(x, y, L_x, L_y)
 for j, k in enumerate(kz):
     print(str(j) + "/" + str(len(kz)))
     H = Ham_nw_Bi2Se3_2(n_sites, n_orb, L_x, L_y, x, y, k, A1, A2, B1, B2, C, D1, D2, M, flux)
-    # H = Ham_nw_Bi2Se3_1(n_sites, n_orb, L_x, L_y, x, y, k, t, lamb, lamb_z, eps, flux)
+    # H = Ham_nw_Bi2Se3_1(n_sites, n_orb, L_x, L_y, x, y, k, t, lamb, lamb_z, eps, flux, periodicity_x=True)
     bands[:, j], eigenstates[:, :, j] = spectrum(H)
 
 # Probability density
