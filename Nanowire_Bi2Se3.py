@@ -1,25 +1,26 @@
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
+from numpy import pi
 from functions import spectrum, Ham_nw_Bi2Se3_1, Ham_nw_Bi2Se3_2, xtranslation, ytranslation
 
 # %%  Global definitions
 
 # Parameters of the model
 n_orb = 4                                   # Number of orbitals per site
-Arms = 0.1                                     # From armstrongs to nm
+Arms = 0.1                                  # From armstrongs to nm
 lamb = 150                                  # meV
 eps = 4 * lamb                              # meV
 lamb_z = 2 * lamb                           # meV
 t = lamb                                    # meV
 flux = 0.0                                  # Flux through the cross-section in units of the flux quantum
-kz = np.linspace(-0.1, 0.1, 500)            # Momentum space
-A1, A2 = 2200 * Arms, 4100 * Arms           # meV
-B1, B2, D1, D2 = 10000 * (Arms ** 2), 56600 * (Arms ** 2), 1300 * (Arms ** 2), 19600 * (Arms ** 2)  # meV
+kz = np.linspace(-0.4, 0.4, 1000)           # Momentum space
+A1, A2 = 2.2e3 * Arms, 4.1e3 * Arms           # meV
+B1, B2, D1, D2 = 10e3 * (Arms ** 2), 56.6e3 * (Arms ** 2), 1.3e3 * (Arms ** 2), 19.6e3 * (Arms ** 2)  # meV
 C, M = -6.8, 280                            # meV
 
 # Lattice definition
-L_x, L_y = 10, 10                           # In units of a (average bond length)
+L_x, L_y = 10, 7                           # In units of a (average bond length)
 n_sites = int(L_x * L_y)                    # Number of sites in the lattice
 n_states = n_sites * n_orb                  # Number of basis states
 sites = np.arange(0, L_x * L_y)             # Array with the number of each site
@@ -42,7 +43,7 @@ transy = ytranslation(x, y, L_x, L_y)
 # Band structure
 for j, k in enumerate(kz):
     print(str(j) + "/" + str(len(kz)))
-    H = Ham_nw_Bi2Se3_2(n_sites, n_orb, L_x, L_y, x, y, k, A1, A2, B1, B2, C, D1, D2, M, flux)
+    H = Ham_nw_Bi2Se3_2(n_sites, n_orb, L_x, L_y, x, y, k, A1, A2, B1, B2, C, D1, D2, M, flux, periodicity_x=True)
     # H = Ham_nw_Bi2Se3_1(n_sites, n_orb, L_x, L_y, x, y, k, t, lamb, lamb_z, eps, flux, periodicity_x=True)
     bands[:, j], eigenstates[:, :, j] = spectrum(H)
 
@@ -129,9 +130,19 @@ title = "Bi2Se3_" + str(L_y) + "_layers" + ".pdf"
 plt.show()
 
 
-
-
-
+fig2 = plt.figure()
+# Band Structure
+for j in range(n_states):
+    plt.plot(kz, bands[j, :], '.b', markersize=0.5)
+plt.plot(kz[momentum], bands[int(np.floor(n_states / 2)) + band, momentum], '.r', markersize=5)
+plt.plot(kz[momentum], bands[int(np.floor(n_states / 2)) - band - 1, momentum], '.c', markersize=5)
+# Axis labels and limits
+plt.ylabel("$E$[meV]", fontsize=15)
+plt.xlabel("$ka$", fontsize=15)
+plt.ylim(-100, 250)
+plt.xlim(-0.4, 0.4)
+plt.title("Bi$_2$Se$_3$ nw, $L_y=$" + str(L_y) + " nm , $\phi/\phi_0=$ " + str(flux) + ", $E_g=$ " + '{:.1f}\n'.format(gap) + " meV")
+plt.show()
 
 
 

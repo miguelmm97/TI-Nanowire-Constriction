@@ -15,6 +15,10 @@ sigma_0 = np.eye(2)
 sigma_x = np.array([[0, 1], [1, 0]])
 sigma_y = np.array([[0, -1j], [1j, 0]])
 sigma_z = np.array([[1, 0], [0, -1]])
+tau_0 = np.eye(2)
+tau_x = np.array([[0, 1], [1, 0]])
+tau_y = np.array([[0, -1j], [1j, 0]])
+tau_z = np.array([[1, 0], [0, -1]])
 
 #%% Transport
 def f_FD(E, mu, T):
@@ -174,9 +178,9 @@ def M_theta(modes, R, dR, w, h, dx, B_par=0):
     # w, h: Width and height of the nanostructure at x (in nm)
     # B_par: Magnetic field threaded through the cross-section of the nanostructure
 
-    geom = np.sqrt(1 + dR ** 2) / R                       # Geometric factor
-    A_theta = 0.5 * (nm ** 2) * e * B_par * w * h / hbar  # A_theta = eBa²/2hbar
-    M = geom * np.diag(modes - 0.5 + A_theta)             # 1/R (n-1/2 + eBa²/2hbar) term
+    geom = np.sqrt(1 + dR ** 2) / R                              # Geometric factor
+    A_theta = 0.5 * (nm ** 2) * e * B_par * w * h / (pi * hbar)  # A_theta = eBa²/2hbar
+    M = geom * np.diag(modes - 0.5 + A_theta)                    # 1/R (n-1/2 + eBa²/2hbar) term
 
     return np.kron(sigma_x, M) * dx
 
@@ -235,24 +239,49 @@ def geom_cons(x, x1, x2, x3, r1, r2, sigma):
     # x3: Start of the second cone
     return geom_nc(x, x1, x2, r1, r2, sigma) + geom_nc(-x + x2 + x3, x1, x2, r1, r2, sigma) - r2
 
-def constriction(L_lead, L_nc, L_cons, h_lead, w_lead, h_cons, w_cons, sigma, n_x):
+def constriction(L_lead, L_nc, L_cons, h_lead, w_lead, h_cons, w_cons, sigma, sampling='uniform', n_x=None, n_leads=None, n_nc=None, n_cons=None):
     # Geometry of a symmetric rectangular constriction with smoothing sigma and n_x points
 
-    x0 = 0
-    x1 = x0 + L_lead
-    x2 = x1 + L_nc
-    x3 = x2 + L_cons
-    x4 = x3 + L_nc
-    x5 = x4 + L_lead
-    L = x5 - x0
-    L_grid = np.linspace(x0, x5, n_x)                          # x grid
-    dx = L / n_x                                               # Step
-    h = geom_cons(L_grid, x1, x2, x3, h_lead, h_cons, sigma)   # Height
-    w = geom_cons(L_grid, x1, x2, x3, w_lead, w_cons, sigma)   # Width
-    R = (w + h) / pi                                           # Radius
-    dR = np.diff(R) / dx                                       # Derivative radius
 
-    return L_grid, dx, h, w, R, dR
+    if sampling == 'uniform':
+        if n_x is None:
+            raise ValueError('Need to specify number of points!')
+        x0 = 0
+        x1 = x0 + L_lead
+        x2 = x1 + L_nc
+        x3 = x2 + L_cons
+        x4 = x3 + L_nc
+        x5 = x4 + L_lead
+        L = x5 - x0
+        L_grid = np.linspace(x0, x5, n_x)                          # x grid
+        dx = L / n_x                                               # Step
+        h = geom_cons(L_grid, x1, x2, x3, h_lead, h_cons, sigma)   # Height
+        w = geom_cons(L_grid, x1, x2, x3, w_lead, w_cons, sigma)   # Width
+        R = (w + h) / pi                                           # Radius
+        dR = np.diff(R) / dx                                       # Derivative radius
+
+    elif sampling == 'cones':
+        if (n_leads is None) or (n_cons is None) or (n_nc is None):
+            raise ValueError('Need to specify number of points at each part of the constriction!')
+        x0 = 0
+        x1 = x0 + L_lead
+        x2 = x1 + L_nc
+        x3 = x2 + L_cons
+        x4 = x3 + L_nc
+        x5 = x4 + L_lead
+        lead1 = np.linspace(x0, x1, n_leads)
+        cone1 = np.linspace(x1, x2, n_nc)
+        cons = np.linspace(x2, x3, n_cons)
+        cone2 = np.linspace(x3, x4, n_nc)
+        lead2 = np.linspace(x4, x5, n_leads)
+        L_grid = np.concatenate([lead1, cone1, cons, cone2, lead2])
+        dx = [L_lead / n_leads, L_nc / n_nc, L_cons / n_cons]
+        h = geom_cons(L_grid, x1, x2, x3, h_lead, h_cons, sigma)  # Height
+        w = geom_cons(L_grid, x1, x2, x3, w_lead, w_cons, sigma)  # Width
+        R = (w + h) / pi  # Radius
+        dR = np.diff(R) / dx[1]  # Derivative radius
+
+    return L_grid, dx, h, w, R, dR, x0, x1, x2, x3, x4, x5
 
 
 #%% Bi2Se3 Band structure
@@ -346,7 +375,7 @@ def Ham_nw_Bi2Se3_2(n_sites, n_orb, L_x, L_y, x, y, kz, C, M, D1, D2, B1, B2, A1
     # flux: Magnetic flux through the cross-section in units of the flux quantum
     # periodicity_xy: True if we want any of these directions to be periodic
 
-    # Declarations
+    # Definitions
     n_states = n_sites * n_orb                                      # Number of basis states
     cross_section = (L_x - 1) * (L_y - 1)                           # Area of the xy cross-section
     transx = xtranslation(x, y, L_x, L_y)                           # List of neighbours in x direction
@@ -357,8 +386,8 @@ def Ham_nw_Bi2Se3_2(n_sites, n_orb, L_x, L_y, x, y, kz, C, M, D1, D2, B1, B2, A1
     block_z = ((C + 4 * D2) + 2 * D1 * (1 - np.cos(kz))) * np.kron(sigma_0, sigma_0) \
             + ((M - 4 * B2) + 2 * B1 * (1 - np.cos(kz))) * np.kron(sigma_z, sigma_0) \
             + A1 * np.sin(kz) * np.kron(sigma_z, sigma_z)
-    block_y = D2 * np.kron(sigma_0, sigma_0) - B2 * np.kron(sigma_z, sigma_0) - 0.5 * 1j * A2 * np.kron(sigma_x, sigma_x)
-    block_x = D2 * np.kron(sigma_0, sigma_0) - B2 * np.kron(sigma_z, sigma_0) - 0.5 * 1j * A2 * np.kron(sigma_x, sigma_y)
+    block_x = -D2 * np.kron(sigma_0, sigma_0) + B2 * np.kron(sigma_z, sigma_0) - 0.5 * 1j * A2 * np.kron(sigma_x, sigma_x)
+    block_y = -D2 * np.kron(sigma_0, sigma_0) + B2 * np.kron(sigma_z, sigma_0) - 0.5 * 1j * A2 * np.kron(sigma_x, sigma_y)
     peierls = np.exp((2 * pi * 1j / cross_section) * flux * y)
 
     # Hopping along x and y
@@ -390,10 +419,60 @@ def Ham_nw_Bi2Se3_2(n_sites, n_orb, L_x, L_y, x, y, kz, C, M, D1, D2, B1, B2, A1
 
     return H
 
+def Ham_ThinFilm_Bi2Se3(L_z, z, kx, ky, C, M, D1, D2, B1, B2, A1, A2, a):
 
+    # Definitions
+    n_states = L_z * 4                                            # Number of basis states
+    transz = (z + 1) % L_z                                        # Translated vector of z
+    H_offdiag = np.zeros((n_states, n_states), dtype='complex_')  # Hamiltonian for the xy cross-section
 
+    # Block hoppings along x, y, z
+    block_xy = (C + 2 * (D1 / a ** 2) + 2 * (D2 / a ** 2) * (2 - np.cos(kx * a) - np.cos(ky * a))) * np.kron(tau_0, sigma_0)\
+             + (M - 2 * (B1 / a ** 2) - 2 * (B2 / a ** 2) * (2 - np.cos(kx * a) - np.cos(ky * a))) * np.kron(tau_z, sigma_0)\
+             + (A2 / a) * np.sin(kx * a) * np.kron(tau_x, sigma_x)\
+             + (A2 / a) * np.sin(ky * a) * np.kron(tau_x, sigma_y)
+    block_z = - (D1 / a ** 2) * np.kron(tau_0, sigma_0) \
+              + (B1 / a ** 2) * np.kron(tau_z, sigma_0) \
+              - (A1 / a) * (1j / 2) * np.kron(tau_x, sigma_z)
 
+    # Hopping along z
+    for site in range(0, L_z):
 
+        # Sites connected by the hamiltonian
+        row = site * 4
+        col = int(transz[site]) * 4
+        # Hopping along z (open boundaries)
+        if (site + 1) % L_z != 0:
+            H_offdiag[row: row + 4, col: col + 4] = block_z
+
+    # Hamiltonian
+    H_diag = np.kron(np.eye(L_z), block_xy)
+    H_offdiag = H_offdiag + np.conj(H_offdiag.T)
+    H = H_diag + H_offdiag
+
+    return H
+
+def Ham_bulk_Bi2Se3(kx, ky, kz, C, M, D1, D2, B1, B2, A1, A2, a):
+
+    # Bulk hamiltonian
+    H = (C + 2 * (D1 / a ** 2) * (1 - np.cos(kz * a)) + 2 * (D2 / a ** 2) * (2 - np.cos(kx * a) - np.cos(ky * a)))* np.kron(tau_0, sigma_0)\
+      + (M - 2 * (B1 / a ** 2) * (1 - np.cos(kz * a)) - 2 * (B2 / a ** 2) * (2 - np.cos(kx * a) - np.cos(ky * a))) * np.kron(tau_z, sigma_0)\
+      + (A1 / a) * np.sin(kz * a) * np.kron(tau_x, sigma_z)\
+      + (A2 / a) * np.sin(kx * a) * np.kron(tau_x, sigma_x)\
+      + (A2 / a) * np.sin(ky * a) * np.kron(tau_x, sigma_y)
+
+    return H
+
+def Ham_bulk_LowEnergy_Bi2Se3(kx, ky, kz, C, M, D1, D2, B1, B2, A1, A2):
+
+    # Bulk hamiltonian
+    H = (C + D1 * (kz ** 2) + D2 * (kx ** 2 + ky ** 2)) * np.kron(tau_0, sigma_0)\
+      + (M - B1 * (kz ** 2) - B2 * (kx ** 2 + ky ** 2)) * np.kron(tau_z, sigma_0)\
+      + A1 * kz * np.kron(tau_x, sigma_z)\
+      + A2 * kx * np.kron(tau_x, sigma_x)\
+      + A2 * ky * np.kron(tau_x, sigma_y)
+
+    return H
 
 
 
