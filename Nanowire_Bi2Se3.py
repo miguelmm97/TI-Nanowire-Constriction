@@ -2,25 +2,32 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
 from numpy import pi
-from functions import spectrum, Ham_nw_Bi2Se3_1, Ham_nw_Bi2Se3_2, xtranslation, ytranslation
+from functions import spectrum, Ham_nw_Bi2Se3, Ham_ThinFilm_Bi2Se3_bulkY,  xtranslation, ytranslation
 
 # %%  Global definitions
 
 # Parameters of the model
 n_orb = 4                                   # Number of orbitals per site
-Arms = 0.1                                  # From armstrongs to nm
-lamb = 150                                  # meV
-eps = 4 * lamb                              # meV
-lamb_z = 2 * lamb                           # meV
-t = lamb                                    # meV
+lamb = 0.15                                 # eV
+eps = 4 * lamb                              # eV
+lamb_z = 2 * lamb                           # eV
+t = lamb                                    # eV
 flux = 0.0                                  # Flux through the cross-section in units of the flux quantum
-kz = np.linspace(-0.4, 0.4, 1000)           # Momentum space
-A1, A2 = 2.2e3 * Arms, 4.1e3 * Arms           # meV
-B1, B2, D1, D2 = 10e3 * (Arms ** 2), 56.6e3 * (Arms ** 2), 1.3e3 * (Arms ** 2), 19.6e3 * (Arms ** 2)  # meV
-C, M = -6.8, 280                            # meV
+ky = np.linspace(-0.4, 0.4, 1000)           # ky [1/Å]
+
+# Parameters
+A1 = 2.2                                     # eV Å
+A2 = 4.1                                     # eV Å
+B1 = 10                                      # eV Å^2
+B2 = 56.6                                    # eV Å^2
+D1 = 1.3                                     # eV Å^2
+D2 = 19.6                                    # eV Å^2
+C = - 6.8e-3                                 # eV
+M = 0.28                                     # eV
+a = 10                                       # Å
 
 # Lattice definition
-L_x, L_y = 10, 7                           # In units of a (average bond length)
+L_x, L_y = 10, 5                            # In units of a (average bond length)
 n_sites = int(L_x * L_y)                    # Number of sites in the lattice
 n_states = n_sites * n_orb                  # Number of basis states
 sites = np.arange(0, L_x * L_y)             # Array with the number of each site
@@ -29,11 +36,11 @@ y = sites // L_x                            # y position of the sites
 
 # State that we want to show in the figure
 band = 0                                    # Band that we are plotting
-momentum = 300                             # Momentum index to plot the wavefunctions
+momentum = int(len(ky) / 2) + 5             # Momentum index to plot the wavefunctions
 
 # Declarations
-bands = np.zeros((n_states, len(kz)))
-eigenstates = np.zeros((n_states, n_states, len(kz)), complex)
+bands = np.zeros((n_states, len(ky)))
+eigenstates = np.zeros((n_states, n_states, len(ky)), complex)
 prob_density = np.zeros((n_sites, n_states))
 transx = xtranslation(x, y, L_x, L_y)
 transy = ytranslation(x, y, L_x, L_y)
@@ -41,10 +48,10 @@ transy = ytranslation(x, y, L_x, L_y)
 # %% Diagonalisation
 
 # Band structure
-for j, k in enumerate(kz):
-    print(str(j) + "/" + str(len(kz)))
-    H = Ham_nw_Bi2Se3_2(n_sites, n_orb, L_x, L_y, x, y, k, A1, A2, B1, B2, C, D1, D2, M, flux, periodicity_x=True)
-    # H = Ham_nw_Bi2Se3_1(n_sites, n_orb, L_x, L_y, x, y, k, t, lamb, lamb_z, eps, flux, periodicity_x=True)
+for j, k in enumerate(ky):
+    print(str(j) + "/" + str(len(ky)))
+    H = Ham_ThinFilm_Bi2Se3_bulkY(n_sites, n_orb, L_x, L_y, x, y, k, C, M, D1, D2, B1, B2, A1, A2, a)
+    # H = Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, ky[j], t, lamb, lamb_z, eps, a, flux, periodicity_x=True)
     bands[:, j], eigenstates[:, :, j] = spectrum(H)
 
 # Probability density
@@ -54,7 +61,7 @@ for ind, site in enumerate(sites):
     prob_density[ind, :] = np.diag(aux2)
 
 # Band gap
-gap = bands[int(np.floor(n_states / 2)), int(np.floor(len(kz) / 2))] - bands[int(np.floor(n_states / 2)) - 1, int(np.floor(len(kz) / 2))]
+gap = bands[int(np.floor(n_states / 2)), int(np.floor(len(ky) / 2))] - bands[int(np.floor(n_states / 2)) - 1, int(np.floor(len(ky) / 2))]
 
 
 # %% Figures
@@ -65,22 +72,22 @@ plt.rc('font', family='serif')
 plt.rc('font', size=15)
 
 fig = plt.figure()
-gs = GridSpec(4, 6, figure=fig, wspace=4, hspace=1)
-ax1 = fig.add_subplot(gs[:, 0:2])
-ax2 = fig.add_subplot(gs[0:2, 2:6])
-ax3 = fig.add_subplot(gs[2:, 2:6])
+gs = GridSpec(4, 10, figure=fig, wspace=5, hspace=1)
+ax1 = fig.add_subplot(gs[:, 0:4])
+ax2 = fig.add_subplot(gs[0:2, 4:10])
+ax3 = fig.add_subplot(gs[2:, 4:10])
 
 # Band Structure
 for j in range(n_states):
-    ax1.plot(kz, bands[j, :], '.b', markersize=0.5)
-ax1.plot(kz[momentum], bands[int(np.floor(n_states / 2)) + band, momentum], '.r', markersize=5)
-ax1.plot(kz[momentum], bands[int(np.floor(n_states / 2)) - band - 1, momentum], '.c', markersize=5)
+    ax1.plot(ky, bands[j, :], 'b', markersize=0.5)
+ax1.plot(ky[momentum], bands[int(np.floor(n_states / 2)) + band, momentum], '.r', markersize=10)
+ax1.plot(ky[momentum], bands[int(np.floor(n_states / 2)) - band - 1, momentum], '.c', markersize=10)
 
 # Axis labels and limits
-ax1.set_ylabel("$E$[meV]", fontsize=15)
-ax1.set_xlabel("$ka$", fontsize=15)
-ax1.set_xlim(-0.1, 0.1)
-ax1.set_ylim(-100, 100)
+ax1.set_ylabel("$E$[eV]", fontsize=15)
+ax1.set_xlabel("$k[1/Å]$", fontsize=15)
+ax1.set_xlim(-0.02, 0.02)
+ax1.set_ylim(-0.2, 0.2)
 
 # Probability density upper band
 for site in range(n_sites):
@@ -124,7 +131,7 @@ ax3.set_ylabel("$y$[a]", fontsize=15)
 ax3.set_xlim(-1, L_x)
 ax3.set_ylim(-1, L_y)
 
-fig.suptitle("Bi$_2$Se$_3$ nw, $L_y=$" + str(L_y) + " nm , $\phi/\phi_0=$ " + str(flux) + ", $E_g=$ " + '{:.1f}\n'.format(gap) + " meV")
+fig.suptitle("Bi$_2$Se$_3$ Thin film, $L_z=$" + str(L_y) + " nm , $E_g=$ " + '{:.5f}\n'.format(gap) + " eV")
 title = "Bi2Se3_" + str(L_y) + "_layers" + ".pdf"
 # plt.savefig(title, bbox_inches="tight")
 plt.show()
@@ -133,15 +140,15 @@ plt.show()
 fig2 = plt.figure()
 # Band Structure
 for j in range(n_states):
-    plt.plot(kz, bands[j, :], '.b', markersize=0.5)
-plt.plot(kz[momentum], bands[int(np.floor(n_states / 2)) + band, momentum], '.r', markersize=5)
-plt.plot(kz[momentum], bands[int(np.floor(n_states / 2)) - band - 1, momentum], '.c', markersize=5)
+    plt.plot(ky, bands[j, :], 'b', markersize=0.5)
+# plt.plot(ky[momentum], bands[int(np.floor(n_states / 2)) + band, momentum], '.r', markersize=10)
+# plt.plot(ky[momentum], bands[int(np.floor(n_states / 2)) - band - 1, momentum], '.c', markersize=10)
 # Axis labels and limits
-plt.ylabel("$E$[meV]", fontsize=15)
-plt.xlabel("$ka$", fontsize=15)
-plt.ylim(-100, 250)
+plt.ylabel("$E$[eV]", fontsize=15)
+plt.xlabel("$k[1/Å]$", fontsize=15)
+plt.ylim(-2, 2)
 plt.xlim(-0.4, 0.4)
-plt.title("Bi$_2$Se$_3$ nw, $L_y=$" + str(L_y) + " nm , $\phi/\phi_0=$ " + str(flux) + ", $E_g=$ " + '{:.1f}\n'.format(gap) + " meV")
+plt.title("Bi$_2$Se$_3$ Thin Film, $L_z=$" + str(L_y))
 plt.show()
 
 
