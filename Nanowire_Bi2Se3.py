@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
-from numpy import pi
-from functions import spectrum, Ham_nw_Bi2Se3, Ham_ThinFilm_Bi2Se3_bulkY,  xtranslation, ytranslation
+from functions import spectrum, Ham_nw_Bi2Se3, Ham_nw_FB3dTI, xtranslation, ytranslation
 
 # %%  Global definitions
 
@@ -12,22 +11,22 @@ lamb = 0.15                                 # eV
 eps = 4 * lamb                              # eV
 lamb_z = 2 * lamb                           # eV
 t = lamb                                    # eV
-flux = 0.0                                  # Flux through the cross-section in units of the flux quantum
+flux = 5                                  # Flux through the cross-section in units of the flux quantum
 ky = np.linspace(-0.4, 0.4, 1000)           # ky [1/Å]
 
 # Parameters
-A1 = 2.2                                     # eV Å
-A2 = 4.1                                     # eV Å
-B1 = 10                                      # eV Å^2
-B2 = 56.6                                    # eV Å^2
-D1 = 1.3                                     # eV Å^2
-D2 = 19.6                                    # eV Å^2
-C = - 6.8e-3                                 # eV
-M = 0.28                                     # eV
-a = 10                                       # Å
+A1 = 2.2                                    # eV Å
+A2 = 4.1                                    # eV Å
+B1 = 10                                     # eV Å^2
+B2 = 56.6                                   # eV Å^2
+D1 = 1.3                                    # eV Å^2
+D2 = 19.6                                   # eV Å^2
+C = - 6.8e-3                                # eV
+M = 0.28                                    # eV
+a = 10                                      # Å
 
 # Lattice definition
-L_x, L_y = 10, 5                            # In units of a (average bond length)
+L_x, L_y = 10, 5                           # In units of a (average bond length)
 n_sites = int(L_x * L_y)                    # Number of sites in the lattice
 n_states = n_sites * n_orb                  # Number of basis states
 sites = np.arange(0, L_x * L_y)             # Array with the number of each site
@@ -36,9 +35,9 @@ y = sites // L_x                            # y position of the sites
 
 # State that we want to show in the figure
 band = 0                                    # Band that we are plotting
-momentum = int(len(ky) / 2) + 5             # Momentum index to plot the wavefunctions
+momentum = int(len(ky) / 2) + 5             # Momentum index to plot the wave functions
 
-# Declarations
+# Definitions
 bands = np.zeros((n_states, len(ky)))
 eigenstates = np.zeros((n_states, n_states, len(ky)), complex)
 prob_density = np.zeros((n_sites, n_states))
@@ -50,8 +49,7 @@ transy = ytranslation(x, y, L_x, L_y)
 # Band structure
 for j, k in enumerate(ky):
     print(str(j) + "/" + str(len(ky)))
-    H = Ham_ThinFilm_Bi2Se3_bulkY(n_sites, n_orb, L_x, L_y, x, y, k, C, M, D1, D2, B1, B2, A1, A2, a)
-    # H = Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, ky[j], t, lamb, lamb_z, eps, a, flux, periodicity_x=True)
+    H = Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, k, C, M, D1, D2, B1, B2, A1, A2, a, flux, periodicity_x=True)
     bands[:, j], eigenstates[:, :, j] = spectrum(H)
 
 # Probability density
@@ -131,24 +129,24 @@ ax3.set_ylabel("$y$[a]", fontsize=15)
 ax3.set_xlim(-1, L_x)
 ax3.set_ylim(-1, L_y)
 
-fig.suptitle("Bi$_2$Se$_3$ Thin film, $L_z=$" + str(L_y) + " nm , $E_g=$ " + '{:.5f}\n'.format(gap) + " eV")
+fig.suptitle("Bi$_2$Se$_3$ NW, $L_z=$" + str(L_y) + " nm , $\phi/\phi_0$ =" + str(flux) + ",  $E_g=$ " + '{:.5f}\n'.format(gap) + " eV")
 title = "Bi2Se3_" + str(L_y) + "_layers" + ".pdf"
 # plt.savefig(title, bbox_inches="tight")
 plt.show()
 
 
+
+
+# Full band structure
 fig2 = plt.figure()
-# Band Structure
 for j in range(n_states):
     plt.plot(ky, bands[j, :], 'b', markersize=0.5)
-# plt.plot(ky[momentum], bands[int(np.floor(n_states / 2)) + band, momentum], '.r', markersize=10)
-# plt.plot(ky[momentum], bands[int(np.floor(n_states / 2)) - band - 1, momentum], '.c', markersize=10)
 # Axis labels and limits
 plt.ylabel("$E$[eV]", fontsize=15)
 plt.xlabel("$k[1/Å]$", fontsize=15)
 plt.ylim(-2, 2)
 plt.xlim(-0.4, 0.4)
-plt.title("Bi$_2$Se$_3$ Thin Film, $L_z=$" + str(L_y))
+plt.title("Bi$_2$Se$_3$ NW, $L_z=$" + str(L_y))
 plt.show()
 
 

@@ -1,7 +1,5 @@
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 import numpy as np
-from numpy import pi
 from functions import spectrum, Ham_bulk_Bi2Se3, Ham_bulk_LowEnergy_Bi2Se3
 
 # %%  Global definitions

@@ -284,7 +284,7 @@ def constriction(L_lead, L_nc, L_cons, h_lead, w_lead, h_cons, w_cons, sigma, sa
     return L_grid, dx, h, w, R, dR, x0, x1, x2, x3, x4, x5
 
 
-#%% Bi2Se3 Band structure
+#%% Bi2Se3 Band structure and hybridisation gap
 def xtranslation(x, y, n_x, n_y):
     # Translates the vector x one site in direction x
     # x, y: Vectors with the position of the lattice sites
@@ -311,16 +311,29 @@ def spectrum(H):
 
     return energy, eigenstates
 
-def Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, kz, t, lamb, lamb_z, eps, a, flux, periodicity_x=False, periodicity_y=False):
-    # Builds the model Hamiltonian of a translationally-invariant Bi2Se3 nanowire in OBC at momentum kz.
-    # n_sites: Number of sites of the lattice
-    # n_orb: Number of orbitals of the model
-    # L_x, L_y: System size on each direction
-    # x, y: Position of the sites on each direction
-    # kz: Momentum alongside the nanowire
-    # t, lamb, lamb_z, eps: Parameters of the model
-    # flux: Magnetic flux through the cross-section in units of the flux quantum
-    # periodicity_xy: Trye if we want any of these directions to be periodic
+def Ham_nw_FB3dTI(n_sites, n_orb, L_x, L_y, x, y, k, t, lamb, lamb_z, eps, a, flux, periodicity_x=False, periodicity_y=False):
+    """
+        Calculates the hamiltonian for a 3dTI (Fu and Berg model) nanowire bulk z direction, and finite but possibly
+        periodic boundaries along x and y.
+
+        Parameters
+        ---------
+        n_sites: Number of lattice sites
+        n_orb:  Number of orbitals
+        L_x, L_y: Number of sites on each direction
+        x, y: Position of each site
+        k: Momentum along y direction
+        t, lamb, lamb_z, eps: Parameters of the model
+        a: Lattice constant
+        flux: Magnetic flux threaded through the cross-section in units of the quantum of flux
+        periodicity_x: True/False
+        periodicity_y: True/False
+
+        Returns:
+        -------
+        H: Matrix Hamiltonian
+
+    """
 
     # Declarations
     n_states = n_sites * n_orb                                      # Number of basis states
@@ -332,7 +345,7 @@ def Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, kz, t, lamb, lamb_z, eps, a, f
     # Block hoppings along x, y
     block_x = (1j * 0.5 * lamb * np.kron(sigma_z, sigma_y)) - t * np.kron(sigma_x, sigma_0)
     block_y = (-1j * 0.5 * lamb * np.kron(sigma_z, sigma_x)) - t * np.kron(sigma_x, sigma_0)
-    block_z = (eps - 2 * t * np.cos(kz * a)) * np.kron(sigma_x, sigma_0) + (lamb_z * np.sin(kz * a)) * np.kron(sigma_y, sigma_0)
+    block_z = (eps - 2 * t * np.cos(k * a)) * np.kron(sigma_x, sigma_0) + (lamb_z * np.sin(k * a)) * np.kron(sigma_y, sigma_0)
     peierls = np.exp((2 * pi * 1j / cross_section) * flux * y)
 
     # Hopping along x and y
@@ -364,7 +377,131 @@ def Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, kz, t, lamb, lamb_z, eps, a, f
 
     return H
 
-def Ham_ThinFilm_Bi2Se3_bulkXY(L_z, z, kx, ky, C, M, D1, D2, B1, B2, A1, A2, a):
+def Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_z, x, z, k, C, M, D1, D2, B1, B2, A1, A2, a, flux, periodicity_x=False, periodicity_z=False):
+    """
+    Calculates the hamiltonian for a Bi2Se3 nanowire with a bulk y direction, and finite but possibly periodic boundaries
+    along x and z.
+
+    Parameters
+    ---------
+    n_sites: Number of lattice sites
+    n_orb:  Number of orbitals
+    L_x, L_z: Number of sites on each direction
+    x, z: Position of each site
+    k: Momentum along y direction
+    M, D1, D2, B1, B2, A1, A2, C: Parameters of the model
+    a: Lattice constant
+    flux: Magnetic flux threaded through the cross-section in units of the quantum of flux
+    periodicity_x: True/False
+    periodicity_z: True/False
+
+    Returns:
+    -------
+    H: Matrix Hamiltonian
+
+    """
+
+    # Definitions
+    n_states = n_sites * n_orb                                    # Number of basis states
+    transx = xtranslation(x, z, L_x, L_z)                         # List of neighbours in x direction
+    transy = ytranslation(x, z, L_x, L_z)                         # List of neighbours in y direction
+    cross_section = (L_x - 1) * (L_z - 1)                         # Area of the xy cross-section
+    H_offdiag = np.zeros((n_states, n_states), dtype='complex_')  # Hamiltonian for the xy cross-section
+
+    # Block hoppings along x, y, z
+    block_x = - (D2 / a ** 2) * np.kron(tau_0, sigma_0) \
+              + (B2 / a ** 2) * np.kron(tau_z, sigma_0) \
+              - (A2 / a) * (1j / 2) * np.kron(tau_x, sigma_x)
+    block_y = (C + 2 * ((D1 + D2) / a ** 2) + 2 * (D2 / a ** 2) * (1 - np.cos(k * a))) * np.kron(tau_0, sigma_0) \
+              + (M - 2 * ((B1 + B2) / a ** 2) - 2 * (B2 / a ** 2) * (1 - np.cos(k * a))) * np.kron(tau_z, sigma_0) \
+              + (A2 / a) * np.sin(k * a) * np.kron(tau_x, sigma_y)
+    block_z = - (D1 / a ** 2) * np.kron(tau_0, sigma_0) \
+              + (B1 / a ** 2) * np.kron(tau_z, sigma_0) \
+              - (A1 / a) * (1j / 2) * np.kron(tau_x, sigma_z)
+    peierls = np.exp((2 * pi * 1j / cross_section) * flux * z)
+
+    # Hopping along x and y
+    for site in range(0, n_sites):
+
+        # Sites connected by the hamiltonian
+        row = site * n_orb
+        colx = transx[site] * n_orb
+        colz = transy[site] * n_orb
+
+        # Hopping along x
+        if periodicity_x:
+            H_offdiag[row: row + n_orb, colx: colx + n_orb] = block_x * peierls[site]
+        else:
+            if (site + 1) % L_x != 0:
+                H_offdiag[row: row + n_orb, colx: colx + n_orb] = block_x * peierls[site]
+
+        # Hopping along y
+        if periodicity_z:
+            H_offdiag[row: row + n_orb, colz: colz + n_orb] = block_z
+        else:
+            if (site + L_x) < n_sites:
+                H_offdiag[row: row + n_orb, colz: colz + n_orb] = block_z
+
+    # Hamiltonian
+    H_diag = np.kron(np.eye(n_sites), block_y)
+    H_offdiag = H_offdiag + np.conj(H_offdiag.T)
+    H = H_diag + H_offdiag
+
+    return H
+
+def Ham_bulk_Bi2Se3(kx, ky, kz, C, M, D1, D2, B1, B2, A1, A2, a):
+    """
+    Calculates the bulk band structure for Bi2Se3 by taking the low energy ab initio theory to the lattice
+
+    Parameters
+    ----------
+    kx, ky, kz: {float} Momentum along different directions
+    M, D1, D2, B1, B2, A1, A2, C: {float} Parameters of the model
+    a: {float} Lattice constant
+
+    Returns:
+    -------
+    H: {4x4 np.array} Matrix hamiltonian
+
+    """
+
+    # Bulk hamiltonian
+    H = (C + 2 * (D1 / a ** 2) * (1 - np.cos(kz * a)) + 2 * (D2 / a ** 2) * (2 - np.cos(kx * a) - np.cos(ky * a)))* np.kron(tau_0, sigma_0)\
+      + (M - 2 * (B1 / a ** 2) * (1 - np.cos(kz * a)) - 2 * (B2 / a ** 2) * (2 - np.cos(kx * a) - np.cos(ky * a))) * np.kron(tau_z, sigma_0)\
+      + (A1 / a) * np.sin(kz * a) * np.kron(tau_x, sigma_z)\
+      + (A2 / a) * np.sin(kx * a) * np.kron(tau_x, sigma_x)\
+      + (A2 / a) * np.sin(ky * a) * np.kron(tau_x, sigma_y)
+
+    return H
+
+def Ham_bulk_LowEnergy_Bi2Se3(kx, ky, kz, C, M, D1, D2, B1, B2, A1, A2):
+    """
+      Calculates the bulk band structure for Bi2Se3 taking the low energy ab initio theory
+
+      Parameters
+      ----------
+      kx, ky, kz: {float} Momentum along different directions
+      M, D1, D2, B1, B2, A1, A2, C: {float} Parameters of the model
+
+      Returns:
+      -------
+      H: {4x4 np.array} Matrix hamiltonian
+
+      """
+
+    # Bulk hamiltonian
+    H = (C + D1 * (kz ** 2) + D2 * (kx ** 2 + ky ** 2)) * np.kron(tau_0, sigma_0)\
+      + (M - B1 * (kz ** 2) - B2 * (kx ** 2 + ky ** 2)) * np.kron(tau_z, sigma_0)\
+      + A1 * kz * np.kron(tau_x, sigma_z)\
+      + A2 * kx * np.kron(tau_x, sigma_x)\
+      + A2 * ky * np.kron(tau_x, sigma_y)
+
+    return H
+
+
+
+
+def Ham_ThinFilm_Bi2Se3(L_z, z, kx, ky, C, M, D1, D2, B1, B2, A1, A2, a):
 
     # Definitions
     n_states = L_z * 4                                            # Number of basis states
@@ -397,76 +534,50 @@ def Ham_ThinFilm_Bi2Se3_bulkXY(L_z, z, kx, ky, C, M, D1, D2, B1, B2, A1, A2, a):
 
     return H
 
-def Ham_ThinFilm_Bi2Se3_bulkY(n_sites, n_orb, L_x, L_y, x, y, k, C, M, D1, D2, B1, B2, A1, A2, a, periodicity_x=False, periodicity_y=False):
+def Ham_THinFilm_FB3dTI(L_x, x, ky, kz, t, lamb, lamb_z, eps, a, B):
+    """
+    Calculates the hamiltonian for a thin film along x y and z, with finite dimension x, for the Fu and Berg model,
+    in a parallel magnetic field B along the thin film.
+    Parameters
+    ----------
+    L_x: {int} Length on x direction
+    x: {np.array} x position of the sites
+    ky, kz: {float} Momentum along ky and kz
+    t, lamb, lamb_z, eps: {float} Parameters of the model
+    a: {float} Lattice constant
+    B: {float} Magnetic field
 
-    # Definitions
-    n_states = n_sites * n_orb                                    # Number of basis states
-    transx = xtranslation(x, y, L_x, L_y)                         # List of neighbours in x direction
-    transy = ytranslation(x, y, L_x, L_y)                         # List of neighbours in y direction
+    Returns
+    ------
+    H: {np.array(n_states, n_states)} Matrix hamiltonian
+
+    """
+    # Declarations
+    n_states = len(x) * 4                                         # Number of basis states
+    transx = ((x + 1) % L_x)                                      # List of neighbours in x direction
     H_offdiag = np.zeros((n_states, n_states), dtype='complex_')  # Hamiltonian for the xy cross-section
 
-    # Block hoppings along x, y
-    block_y = (C + 2 * ((D1 + D2) / a ** 2) + 2 * (D2 / a ** 2) * (1 - np.cos(k * a))) * np.kron(tau_0, sigma_0) \
-              + (M - 2 * ((B1 + B2) / a ** 2) - 2 * (B2 / a ** 2) * (1 - np.cos(k * a))) * np.kron(tau_z, sigma_0) \
-              + (A2 / a) * np.sin(k * a) * np.kron(tau_x, sigma_y)
-    block_x = - (D2 / a ** 2) * np.kron(tau_0, sigma_0) \
-              + (B2 / a ** 2) * np.kron(tau_z, sigma_0) \
-              - (A2 / a) * (1j / 2) * np.kron(tau_x, sigma_x)
-    block_z = - (D1 / a ** 2) * np.kron(tau_0, sigma_0) \
-              + (B1 / a ** 2) * np.kron(tau_z, sigma_0) \
-              - (A1 / a) * (1j / 2) * np.kron(tau_x, sigma_z)
+    # Block hoppings
+    Xhopp = (1j * 0.5 * lamb * np.kron(sigma_z, sigma_y)) - t * np.kron(sigma_x, sigma_0)
+    bulk = (eps - 2 * t * np.cos(kz * a)) * np.kron(sigma_x, sigma_0)
+    bulk += lamb_z * np.sin(kz * a) * np.kron(sigma_y, sigma_0)
+    bulk += lamb * np.sin(ky * a) * np.kron(sigma_z, sigma_x)
+    bulkB = - 2 * t * np.cos(ky * a) * np.kron(sigma_x, sigma_0)
+    peierls = np.exp(- 1j * 2 * pi * B * x / phi0)
 
-    # Hopping along x and z
-    for site in range(0, n_sites):
+    # Hopping along x
+    for site in range(0, L_x):
+        row = site * 4
+        col = transx[site] * 4
+        if (site + 1) % L_x != 0:
+            H_offdiag[row: row + 4, col: col + 4] = Xhopp
 
-        # Sites connected by the hamiltonian
-        row = site * n_orb
-        colx = transx[site] * n_orb
-        coly = transy[site] * n_orb
-
-        # Hopping along x
-        if periodicity_x:
-            H_offdiag[row: row + n_orb, colx: colx + n_orb] = block_x
-        else:
-            if (site + 1) % L_x != 0:
-                H_offdiag[row: row + n_orb, colx: colx + n_orb] = block_x
-
-        # Hopping along z
-        if periodicity_y:
-            H_offdiag[row: row + n_orb, coly: coly + n_orb] = block_z
-        else:
-            if (site + L_x) < n_sites:
-                H_offdiag[row: row + n_orb, coly: coly + n_orb] = block_z
-
-    # Hamiltonian
-    H_diag = np.kron(np.eye(n_sites), block_y)
-    H_offdiag = H_offdiag + np.conj(H_offdiag.T)
-    H = H_diag + H_offdiag
+    # Hamiltonians
+    H_diag = np.kron(np.eye(L_x), bulk) + np.kron(np.diag(peierls), bulkB)
+    H_offdiag += np.conj(H_offdiag).T
+    H= H_diag + H_offdiag
 
     return H
-
-def Ham_bulk_Bi2Se3(kx, ky, kz, C, M, D1, D2, B1, B2, A1, A2, a):
-
-    # Bulk hamiltonian
-    H = (C + 2 * (D1 / a ** 2) * (1 - np.cos(kz * a)) + 2 * (D2 / a ** 2) * (2 - np.cos(kx * a) - np.cos(ky * a)))* np.kron(tau_0, sigma_0)\
-      + (M - 2 * (B1 / a ** 2) * (1 - np.cos(kz * a)) - 2 * (B2 / a ** 2) * (2 - np.cos(kx * a) - np.cos(ky * a))) * np.kron(tau_z, sigma_0)\
-      + (A1 / a) * np.sin(kz * a) * np.kron(tau_x, sigma_z)\
-      + (A2 / a) * np.sin(kx * a) * np.kron(tau_x, sigma_x)\
-      + (A2 / a) * np.sin(ky * a) * np.kron(tau_x, sigma_y)
-
-    return H
-
-def Ham_bulk_LowEnergy_Bi2Se3(kx, ky, kz, C, M, D1, D2, B1, B2, A1, A2):
-
-    # Bulk hamiltonian
-    H = (C + D1 * (kz ** 2) + D2 * (kx ** 2 + ky ** 2)) * np.kron(tau_0, sigma_0)\
-      + (M - B1 * (kz ** 2) - B2 * (kx ** 2 + ky ** 2)) * np.kron(tau_z, sigma_0)\
-      + A1 * kz * np.kron(tau_x, sigma_z)\
-      + A2 * kx * np.kron(tau_x, sigma_x)\
-      + A2 * ky * np.kron(tau_x, sigma_y)
-
-    return H
-
 
 
 
