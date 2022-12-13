@@ -11,7 +11,7 @@ lamb = 0.15                                 # eV
 eps = 4 * lamb                              # eV
 lamb_z = 2 * lamb                           # eV
 t = lamb                                    # eV
-flux = 5                                  # Flux through the cross-section in units of the flux quantum
+flux = 0                                  # Flux through the cross-section in units of the flux quantum
 ky = np.linspace(-0.4, 0.4, 1000)           # ky [1/Å]
 
 # Parameters
@@ -26,7 +26,7 @@ M = 0.28                                    # eV
 a = 10                                      # Å
 
 # Lattice definition
-L_x, L_y = 10, 5                           # In units of a (average bond length)
+L_x, L_y = 10, 10                           # In units of a (average bond length)
 n_sites = int(L_x * L_y)                    # Number of sites in the lattice
 n_states = n_sites * n_orb                  # Number of basis states
 sites = np.arange(0, L_x * L_y)             # Array with the number of each site
@@ -50,6 +50,7 @@ transy = ytranslation(x, y, L_x, L_y)
 for j, k in enumerate(ky):
     print(str(j) + "/" + str(len(ky)))
     H = Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, k, C, M, D1, D2, B1, B2, A1, A2, a, flux, periodicity_x=True)
+    # H = Ham_nw_FB3dTI(n_sites, n_orb, L_x, L_y, x, y, k, t, lamb, lamb_z, eps, a, flux, periodicity_y=True)
     bands[:, j], eigenstates[:, :, j] = spectrum(H)
 
 # Probability density
@@ -144,9 +145,9 @@ for j in range(n_states):
 # Axis labels and limits
 plt.ylabel("$E$[eV]", fontsize=15)
 plt.xlabel("$k[1/Å]$", fontsize=15)
-plt.ylim(-2, 2)
+plt.ylim(-1.5, 1.5)
 plt.xlim(-0.4, 0.4)
-plt.title("Bi$_2$Se$_3$ NW, $L_z=$" + str(L_y))
+plt.title("Bi$_2$Se$_3$ (001) nanowire")
 plt.show()
 
 

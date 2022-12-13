@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
 from numpy import pi
-from functions import spectrum, Ham_nw_Bi2Se3, Ham_ThinFilm_Bi2Se3_bulkY,  xtranslation, ytranslation
+from functions import spectrum, Ham_nw_Bi2Se3, Ham_nw_FB3dTI
 
 # %%  Global definitions
 
@@ -52,7 +52,7 @@ for i, lx in enumerate(L_x):
             sites = np.arange(0, lx * ly)      # Array with the number of each site
             x = sites % lx                     # x position of the sites
             y = sites // lx                    # y position of the sites
-            H = Ham_ThinFilm_Bi2Se3_bulkY(n_sites, n_orb, lx, ly, x, y, 0, C, M, D1, D2, B1, B2, A1, A2, a, flux[ind])
+            H = Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, 0, C, M, D1, D2, B1, B2, A1, A2, a, flux, periodicity_x=False, periodicity_z=False)
             bands = spectrum(H)[0]
 
             if ind == 0:
