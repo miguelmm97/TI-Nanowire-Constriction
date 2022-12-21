@@ -1,12 +1,19 @@
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
+import random
 from functions import spectrum, Ham_ThinFilm_Bi2Se3, Ham_ThinFilm_FB3dTI
 
 # %%  Global definitions
 
 # Model
-B = 0
+Blist = [0, 1, 3, 5] #, 1, 2, 3] #, 4, 5, 6, 7]
+L_z = np.arange(2, 20, 1)
+Npoints = 2000
+kym = np.linspace(-0.05, 0.0, Npoints)
+kyp = np.linspace(0.0, 0.05, Npoints)
+ky = np.concatenate((kym, kyp))
+ky = [0]
 
 # Values from the papers
 paper_valuesx = np.array([2, 3, 4, 6, 7, 8, 9, 10, 11, 12])
@@ -29,22 +36,26 @@ eps = 4 * lamb                               # eV
 lamb_z = 2 * lamb                            # eV
 t = lamb                                     # eV
 
-# System size
-L_z = [5]  # np.arange(2, 10, 1)
-
 # Definitions
-gap0 = np.zeros((len(L_z),))
+gap = np.zeros((len(L_z), len(Blist)))
+
 # %% Diagonalisation
 
-# Band structure
-for j, lz in enumerate(L_z):
-    print(", Lz=" + str(j) + "/" + str(len(L_z)))
-    n_states = int(4 * lz)             # Number of basis states
-    sites = np.arange(0, lz)           # Array with the number of each site
-    H = Ham_ThinFilm_FB3dTI(lz, sites, 0, 0, t, lamb, lamb_z, eps, a, B)
-    bands = spectrum(H)[0]
-    gap0[j] = bands[int(np.floor(n_states / 2))] - bands[int(np.floor(n_states / 2)) - 1]
+# Band
+for b, B in enumerate(Blist):
+    for i, lz in enumerate(L_z):
+        print("B=" + str(b) + ", Lz=" + str(i) + "/" + str(len(L_z)))
 
+        gap1 = 100                # Auxiliary value to minimise the gap
+        n_states = int(4 * lz)    # Number of basis states
+        sites = np.arange(0, lz)  # Array with the number of each site
+        for j, k in enumerate(ky):
+            H = Ham_ThinFilm_Bi2Se3(lz, sites, 0, k, C, M, D1, D2, B1, B2, A1, A2, a, B)
+            bands = spectrum(H)[0]
+            gap2 = bands[int(np.floor(n_states / 2))] - bands[int(np.floor(n_states / 2)) - 1]
+            if gap2 < gap1:
+                gap[i, b] = bands[int(np.floor(n_states / 2))] - bands[int(np.floor(n_states / 2)) - 1]
+                gap1 = gap2
 
 
 #%% Figures
@@ -63,8 +74,12 @@ ax1.set_xlabel("$L$ unit cells", fontsize=15)
 ax1.set_yscale('log')
 # ax1.legend(("$\phi/\phi_0$=0", "$\phi/\phi_0$=" + str(flux[1])))
 ax1.set_ylim([1e-5, 1e-1])
-plt.title("Bi2Se3 Thin Film")
-ax1.plot(L_z, gap0, '.b')
+plt.title("Bi2Se3 Thin Film (010)")
+for i in range(len(Blist)):
+    hex = ["#" + ''.join([random.choice('ABCDEF0123456789') for j in range(6)])]
+    ax1.plot(L_z, gap[:, i], '.', color=hex[0], label='$B= $' + str(Blist[i]) + " T")
+    ax1.plot(L_z, gap[:, i], color=hex[0])
+ax1.legend(loc='upper right', ncol=2)
 plt.show()
 
 # fig2 = plt.figure()

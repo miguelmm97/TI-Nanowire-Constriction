@@ -8,7 +8,7 @@ from functions import spectrum, Ham_nw_Bi2Se3, Ham_nw_FB3dTI
 
 # Model
 n_orb = 4                                   # Number of orbitals per site
-flux = [0.0, 0.7]                           # Flux through the cross-section in units of the flux quantum
+flux = [0.0, 0.5]                           # Flux through the cross-section in units of the flux quantum
 ky = np.linspace(-0.4, 0.4, 1000)           # ky [1/Å]
 
 # Values from the papers
@@ -52,7 +52,8 @@ for i, lx in enumerate(L_x):
             sites = np.arange(0, lx * ly)      # Array with the number of each site
             x = sites % lx                     # x position of the sites
             y = sites // lx                    # y position of the sites
-            H = Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_y, x, y, 0, C, M, D1, D2, B1, B2, A1, A2, a, flux, periodicity_x=False, periodicity_z=False)
+
+            H = Ham_nw_Bi2Se3(n_sites, n_orb, lx, ly, x, y, 0, C, M, D1, D2, B1, B2, A1, A2, a, flux[ind])
             bands = spectrum(H)[0]
 
             if ind == 0:
@@ -78,12 +79,49 @@ ax1.set_xlabel("$L$ unit cells", fontsize=15)
 ax1.set_yscale('log')
 # ax1.legend(("$\phi/\phi_0$=0", "$\phi/\phi_0$=" + str(flux[1])))
 ax1.set_ylim([1e-5, 1e-1])
-plt.title("Bi2Se3 NW, $L_x=$" + str(L_x))
+plt.title("Bi2Se3 NW (010)")
 colour = ['r', 'b', 'g', 'm', 'k', 'tab:orange', 'tab:purple', 'c','y']
 for i in range(len(L_x)):
     ax1.plot(L_y, gap0[i, :], marker='.', c=colour[i], label="$L_x=$" + str(L_x[i]), )
     ax1.plot(L_y, gap_flux[i, :], marker='^', c=colour[i])
 ax1.legend(loc='lower left', ncol=3)
+plt.show()
+
+
+
+fig2 = plt.figure()
+gs = GridSpec(1, 1, figure=fig2, wspace=1, hspace=1)
+ax2 = fig2.add_subplot(gs[:, :])
+ax2.set_ylabel("$\Delta$[eV]", fontsize=15)
+ax2.set_xlabel("$L$ unit cells", fontsize=15)
+# ax1.plot(paper_valuesx, paper_valuesy, 'or')
+# ax2.set_yscale('log')
+# ax1.legend(("$\phi/\phi_0$=0", "$\phi/\phi_0$=" + str(flux[1])))
+ax2.set_ylim([1e-5, 1e-1])
+plt.title("Bi2Se3 NW (010)")
+colour = ['r', 'b', 'g', 'm', 'k', 'tab:orange', 'tab:purple', 'c','y']
+for i in range(len(L_y)):
+    ax2.plot(L_x, gap0[:, i], marker='.', c=colour[i], label="$L_y=$" + str(L_y[i]), )
+    ax2.plot(L_x, pi / (2 * (L_y[i] + L_x)), '-.', c=colour[i])
+ax2.legend(loc='lower left', ncol=3)
+plt.show()
+
+
+
+fig3 = plt.figure()
+gs = GridSpec(1, 1, figure=fig3, wspace=1, hspace=1)
+ax3 = fig3.add_subplot(gs[:, :])
+ax3.set_ylabel("$\Delta$[eV]", fontsize=15)
+ax3.set_xlabel("$L$ unit cells", fontsize=15)
+# ax1.plot(paper_valuesx, paper_valuesy, 'or')
+ax3.set_yscale('log')
+# a3x1.legend(("$\phi/\phi_0$=0", "$\phi/\phi_0$=" + str(flux[1])))
+ax1.set_ylim([1e-5, 1e-1])
+plt.title("Bi2Se3 NW (010)")
+colour = ['r', 'b', 'g', 'm', 'k', 'tab:orange', 'tab:purple', 'c','y']
+for i in range(len(L_y)):
+    ax3.plot(L_x, gap_flux[:, i], marker='^', c=colour[i], label="$L_y=$" + str(L_y[i]))
+ax3.legend(loc='lower left', ncol=3)
 plt.show()
 
 # fig2 = plt.figure()

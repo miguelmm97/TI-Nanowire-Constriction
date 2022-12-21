@@ -7,9 +7,9 @@ from functions import spectrum, Ham_ThinFilm_Bi2Se3, Ham_ThinFilm_FB3dTI
 
 # Parameters of the model
 a = 10                                  # Lattice constant in Å
-B = 2                                   # Flux through the cross-section in units of the flux quantum
-kx = np.linspace(-0.4, 0.4, 10000)      # kx in 1 / Å
-ky = np.linspace(-0.4, 0.4, 10000)      # ky in 1 / Å
+B = 1                                  # Flux through the cross-section in units of the flux quantum
+kx = np.linspace(-0.4, 0.4, 3000)      # kx in 1 / Å
+ky = np.linspace(-0.4, 0.4, 3000)      # ky in 1 / Å
 
 # Parameters
 A1 = 2.2                                # eV Å
@@ -26,7 +26,7 @@ lamb_z = 2 * lamb                       # eV
 t = lamb                                # eV
 
 # Lattice definition
-L_z = 8                               # In units of a (average bond length)
+L_z = 10                              # In units of a (average bond length)
 n_states = L_z * 4                      # Number of basis states
 z = np.arange(0, L_z)                   # Array with the number of each site
 
@@ -41,11 +41,13 @@ momentum = int(np.floor(len(ky) / 2))
 # Band structure
 for j in range(len(kx)):
     print(str(j) + "/" + str(len(kx)))
-    H = Ham_ThinFilm_FB3dTI(L_z, z, kx[j], ky[j], t, lamb, lamb_z, eps, a, B)
-    # H = Ham_ThinFilm_Bi2Se3(L_z, z, kx[j], ky[j], C, M, D1, D2, B1, B2, A1, A2, a)
+    # H = Ham_ThinFilm_FB3dTI(L_z, z, kx[j], ky[j], t, lamb, lamb_z, eps, a, B)
+    H = Ham_ThinFilm_Bi2Se3(L_z, z, 0, ky[j], C, M, D1, D2, B1, B2, A1, A2, a, B)
     E[:, j] = spectrum(H)[0]
 
-gap = E[int(np.floor(n_states / 2)) + band, momentum] - E[int(np.floor(n_states / 2)) - band - 1, momentum]
+Hgamma = Ham_ThinFilm_Bi2Se3(L_z, z, 0, 0, C, M, D1, D2, B1, B2, A1, A2, a, B)
+Egamma = spectrum(Hgamma)[0]
+gap = Egamma[int(np.floor(n_states / 2)) + band] - Egamma[int(np.floor(n_states / 2)) - band - 1]
 
 # %% Figures
 
@@ -62,7 +64,7 @@ ax2 = fig.add_subplot(gs[:, 4:8])
 
 
 for j in range(n_states):
-    ax1.plot(np.sqrt(2) * kx, E[j, :], 'b')
+    ax1.plot(kx, E[j, :], 'b')
 ax1.set_ylabel("$E$[eV]", fontsize=15)
 ax1.set_xlabel("$k_{\perp}[1/Å]$", fontsize=15)
 ax1.set_xlim(-0.4, 0.4)
@@ -70,21 +72,24 @@ ax1.set_xlim(-0.4, 0.4)
 
 
 for j in range(n_states):
-    ax2.plot(np.sqrt(2) * kx, E[j, :], '.b', markersize=0.25)
+    ax2.plot(np.sqrt(2) * kx, E[j, :], '.b', markersize=1)
 ax2.plot(np.sqrt(2) * kx[momentum], E[int(np.floor(n_states / 2)) + band, momentum], '.r', markersize=10)
 ax2.plot(np.sqrt(2) * kx[momentum], E[int(np.floor(n_states / 2)) - band - 1, momentum], '.c', markersize=10)
+ax2.plot(np.zeros((10, )), np.arange(-1, 9), '-k')
+
+
 ax2.set_xlabel("$k_{\perp}[1/Å]$", fontsize=15)
-ax2.set_xlim(-0.1, 0.1)
-ax2.set_ylim(-0.5, 0.5)
-fig.suptitle("Bi$_2$Se$_3$ thin film, $L_z=$" + str(L_z) + " nm"+ ",  $E_g=$ " + '{:.5f}\n'.format(gap) + " eV")
+ax2.set_xlim(-0.05, 0.05)
+ax2.set_ylim(-0.1, 0.1)
+fig.suptitle("Bi$_2$Se$_3$ thin film (010), $L_z=$" + str(L_z) + " nm, $B=$" + str(B) + " T, $E_g=$ " + '{:.5f}\n'.format(gap) + " eV")
 plt.show()
 
 
-for j in range(n_states):
-    plt.plot(np.sqrt(2) * kx, E[j, :], 'b')
-plt.ylabel("$E$[eV]", fontsize=15)
-plt.xlabel("$k_{\perp}[1/Å]$", fontsize=15)
-plt.xlim(-0.4, 0.4)
-plt.ylim(-1.5, 1.5)
-plt.title("Bi$_2$Se$_3$ (110) thin film")
-plt.show()
+# for j in range(n_states):
+#     plt.plot(np.sqrt(2) * kx, E[j, :], 'b')
+# plt.ylabel("$E$[eV]", fontsize=15)
+# plt.xlabel("$k_{\perp}[1/Å]$", fontsize=15)
+# plt.xlim(-0.4, 0.4)
+# plt.ylim(-1.5, 1.5)
+# plt.title("Bi$_2$Se$_3$ (010) thin film, $B=$" + str(B) + " T")
+# plt.show()

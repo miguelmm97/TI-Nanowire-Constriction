@@ -7,6 +7,7 @@ from scipy.linalg import expm
 # Constants
 hbar = 1e-34                # Planck's constant in Js
 nm = 1e-9                   # Conversion from nm to m
+ams = 1e-10                 # Conversion from Å to m
 e = 1.6e-19                 # Electron charge in C
 phi0 = 2 * pi * hbar / e    # Quantum of flux
 
@@ -413,8 +414,8 @@ def Ham_ThinFilm_FB3dTI(L_x, x, ky, kz, t, lamb, lamb_z, eps, a, B):
     # Block hoppings
     Xhopp = (1j * 0.5 * lamb * np.kron(sigma_z, sigma_y)) - t * np.kron(sigma_x, sigma_0)
     bulk = (eps - 2 * t * np.cos(kz * a)) * np.kron(sigma_x, sigma_0) + lamb_z * np.sin(kz * a) * np.kron(sigma_y, sigma_0)
-    bulk += lamb * np.sin(ky * a) * np.kron(sigma_z, sigma_x)
-    bulkB = - 2 * t * np.cos(ky * a) * np.kron(sigma_x, sigma_0)
+    bulkB = lamb * np.sin(ky * a) * np.kron(sigma_z, sigma_x)
+    bulkB += - 2 * t * np.cos(ky * a) * np.kron(sigma_x, sigma_0)
     peierls = np.exp(- 1j * 2 * pi * B * x * a * a / phi0)
 
     # Hopping along x
@@ -431,21 +432,27 @@ def Ham_ThinFilm_FB3dTI(L_x, x, ky, kz, t, lamb, lamb_z, eps, a, B):
 
     return H
 
-def Ham_ThinFilm_Bi2Se3(L_z, z, kx, ky, C, M, D1, D2, B1, B2, A1, A2, a):
+def Ham_ThinFilm_Bi2Se3(L_z, z, kx, ky, C, M, D1, D2, B1, B2, A1, A2, a, B):
 
     # Definitions
     n_states = L_z * 4                                            # Number of basis states
     transz = (z + 1) % L_z                                        # Translated vector of z
     H_offdiag = np.zeros((n_states, n_states), dtype='complex_')  # Hamiltonian for the xy cross-section
+    peierls = 2 * pi * z * a * a * B * ams * ams / phi0
 
     # Block hoppings along x, y, z
-    block_xy = (C + 2 * (D1 / a ** 2) + 2 * (D2 / a ** 2) * (2 - np.cos(kx * a) - np.cos(ky * a))) * np.kron(tau_0, sigma_0)\
-             + (M - 2 * (B1 / a ** 2) - 2 * (B2 / a ** 2) * (2 - np.cos(kx * a) - np.cos(ky * a))) * np.kron(tau_z, sigma_0)\
-             + (A2 / a) * np.sin(kx * a) * np.kron(tau_x, sigma_x)\
-             + (A2 / a) * np.sin(ky * a) * np.kron(tau_x, sigma_y)
+    block_x = (C + 2 * (D1 / a ** 2) + 2 * (D2 / a ** 2) * (1 - np.cos(kx * a))) * np.kron(tau_0, sigma_0)\
+             + (M - 2 * (B1 / a ** 2) - 2 * (B2 / a ** 2) * (1 - np.cos(kx * a))) * np.kron(tau_z, sigma_0)\
+             + (A2 / a) * np.sin(kx * a) * np.kron(tau_x, sigma_x)
+
+    block_y = 2 * (D2 / a ** 2) * np.kron(np.diag(1 - np.cos(ky * a - peierls)), np.kron(tau_0, sigma_0)) +\
+              - 2 * (B2 / a ** 2) * np.kron(np.diag(1 - np.cos(ky * a - peierls)), np.kron(tau_z, sigma_0)) + \
+              + (A2 / a) * np.kron(np.diag(np.sin(ky * a - peierls)), np.kron(tau_x, sigma_y))
+
     block_z = - (D1 / a ** 2) * np.kron(tau_0, sigma_0) \
               + (B1 / a ** 2) * np.kron(tau_z, sigma_0) \
               - (A1 / a) * (1j / 2) * np.kron(tau_x, sigma_z)
+
 
     # Hopping along z
     for site in range(0, L_z):
@@ -458,7 +465,7 @@ def Ham_ThinFilm_Bi2Se3(L_z, z, kx, ky, C, M, D1, D2, B1, B2, A1, A2, a):
             H_offdiag[row: row + 4, col: col + 4] = block_z
 
     # Hamiltonian
-    H_diag = np.kron(np.eye(L_z), block_xy)
+    H_diag = np.kron(np.eye(L_z), block_x) + block_y
     H_offdiag = H_offdiag + np.conj(H_offdiag.T)
     H = H_diag + H_offdiag
 
@@ -601,6 +608,4 @@ def Ham_nw_Bi2Se3(n_sites, n_orb, L_x, L_z, x, z, k, C, M, D1, D2, B1, B2, A1, A
     H = H_diag + H_offdiag
 
     return H
-
-
 

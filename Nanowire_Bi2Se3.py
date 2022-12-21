@@ -11,8 +11,8 @@ lamb = 0.15                                 # eV
 eps = 4 * lamb                              # eV
 lamb_z = 2 * lamb                           # eV
 t = lamb                                    # eV
-flux = 0                                  # Flux through the cross-section in units of the flux quantum
-ky = np.linspace(-0.4, 0.4, 1000)           # ky [1/Å]
+flux = 0.7                                  # Flux through the cross-section in units of the flux quantum
+ky = np.linspace(-0.4, 0.4, 400)           # ky [1/Å]
 
 # Parameters
 A1 = 2.2                                    # eV Å
