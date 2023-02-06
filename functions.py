@@ -312,10 +312,6 @@ def spectrum(H):
 
     return energy, eigenstates
 
-
-
-
-
 def Ham_bulk_FB3dTI(kx, ky, kz, t, lamb, lamb_z, eps, a):
     """
           Calculates the bulk band structure for Bi2Se3 taking the Fu and Berg model
@@ -433,11 +429,31 @@ def Ham_ThinFilm_FB3dTI(L_x, x, ky, kz, t, lamb, lamb_z, eps, a, B):
     return H
 
 def Ham_ThinFilm_Bi2Se3(L_z, z, kx, ky, C, M, D1, D2, B1, B2, A1, A2, a, B):
+    """
+      Calculates the hamiltonian for a thin film along x y and z, with finite dimension z, for the ab initio model,
+      in a parallel magnetic field B along the thin film.
+      Parameters
+      ----------
+      L_z: {int} Length on x direction
+      z: {np.array} x position of the sites
+      kx, ky: {float} Momentum along ky and kz
+      C, M, D1, D2, B1, B2, A1, A2: {float} Parameters of the model
+      a: {float} Lattice constant
+      B: {float} Magnetic field
+
+      Returns
+      ------
+      H: {np.array(n_states, n_states)} Matrix hamiltonian
+
+      """
+
+
 
     # Definitions
     n_states = L_z * 4                                            # Number of basis states
     transz = (z + 1) % L_z                                        # Translated vector of z
     H_offdiag = np.zeros((n_states, n_states), dtype='complex_')  # Hamiltonian for the xy cross-section
+    # peierls = 2 * pi * (z - (L_z - 1)/2) * a * a * B * ams * ams / phi0           # Peierls factor
     peierls = 2 * pi * z * a * a * B * ams * ams / phi0
 
     # Block hoppings along x, y, z

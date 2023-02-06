@@ -1,29 +1,34 @@
+"""
+Calculation of the band structure of a nanowire for the different models of Bi2Se3 defined in the functions file.
+Depending on the model the geometry of the wire changes, being periodic along y or z.
+"""
+
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
 from functions import spectrum, Ham_nw_Bi2Se3, Ham_nw_FB3dTI, xtranslation, ytranslation
 
-# %%  Global definitions
+#%% Global definitions
 
 # Parameters of the model
 n_orb = 4                                   # Number of orbitals per site
-lamb = 0.15                                 # eV
-eps = 4 * lamb                              # eV
-lamb_z = 2 * lamb                           # eV
-t = lamb                                    # eV
 flux = 0.7                                  # Flux through the cross-section in units of the flux quantum
 ky = np.linspace(-0.4, 0.4, 400)           # ky [1/Å]
 
 # Parameters
-A1 = 2.2                                    # eV Å
-A2 = 4.1                                    # eV Å
-B1 = 10                                     # eV Å^2
-B2 = 56.6                                   # eV Å^2
-D1 = 1.3                                    # eV Å^2
-D2 = 19.6                                   # eV Å^2
-C = - 6.8e-3                                # eV
-M = 0.28                                    # eV
-a = 10                                      # Å
+A1 = 2.2                                    # eV Å      (ab-initio fit to Bi2Se3)
+A2 = 4.1                                    # eV Å      (ab-initio fit to Bi2Se3)
+B1 = 10                                     # eV Å^2    (ab-initio fit to Bi2Se3)
+B2 = 56.6                                   # eV Å^2    (ab-initio fit to Bi2Se3)
+D1 = 1.3                                    # eV Å^2    (ab-initio fit to Bi2Se3)
+D2 = 19.6                                   # eV Å^2    (ab-initio fit to Bi2Se3)
+C = - 6.8e-3                                # eV        (ab-initio fit to Bi2Se3)
+M = 0.28                                    # eV        (Fu and Berg model)
+a = 10                                      # Å         (Fu and Berg model)
+lamb = 0.15                                 # eV        (Fu and Berg model)
+eps = 4 * lamb                              # eV        (Fu and Berg model)
+lamb_z = 2 * lamb                           # eV        (Fu and Berg model)
+t = lamb                                    # eV        (Fu and Berg model)
 
 # Lattice definition
 L_x, L_y = 10, 10                           # In units of a (average bond length)

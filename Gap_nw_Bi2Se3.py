@@ -1,3 +1,9 @@
+"""
+Calculation of the gap dependence in a nanowire of Bi2Se3 for different Lx, Ly and flux threaded through the cross-section.
+The way the gap is calculated for the parallel flux is by looking over a narrow window around 0.5 flux quanta, and selecting
+the minimum gap.
+"""
+
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
@@ -8,7 +14,7 @@ from functions import spectrum, Ham_nw_Bi2Se3, Ham_nw_FB3dTI
 
 # Model
 n_orb = 4                                   # Number of orbitals per site
-flux = [0.0, 0.5]                           # Flux through the cross-section in units of the flux quantum
+flux = np.linspace(0.4, 0.7, 300)           # Flux through the cross-section in units of the flux quantum
 ky = np.linspace(-0.4, 0.4, 1000)           # ky [1/Å]
 
 # Values from the papers
@@ -39,27 +45,44 @@ L_y = np.arange(2, 10, 1)
 # Definitions
 gap0 = np.zeros((len(L_x), len(L_y)))
 gap_flux = np.zeros((len(L_x), len(L_y)))
+
 # %% Diagonalisation
 
-# Band structure
+# No flux
 for i, lx in enumerate(L_x):
     for j, ly in enumerate(L_y):
         print("Lx=" + str(i) + "/" + str(len(L_x)) + ", Ly=" + str(j) + "/" + str(len(L_y)))
 
-        for ind in range(len(flux)):
-            n_sites = int(lx * ly)             # Number of sites in the lattice
-            n_states = n_sites * n_orb         # Number of basis states
-            sites = np.arange(0, lx * ly)      # Array with the number of each site
-            x = sites % lx                     # x position of the sites
-            y = sites // lx                    # y position of the sites
+        n_sites = int(lx * ly)            # Number of sites in the lattice
+        n_states = n_sites * n_orb        # Number of basis states
+        sites = np.arange(0, lx * ly)     # Array with the number of each site
+        x = sites % lx                    # x position of the sites
+        y = sites // lx                   # y position of the sites
+        H = Ham_nw_Bi2Se3(n_sites, n_orb, lx, ly, x, y, 0, C, M, D1, D2, B1, B2, A1, A2, a, 0)
+        bands = spectrum(H)[0]
+        gap0[i, j] = bands[int(np.floor(n_states / 2))] - bands[int(np.floor(n_states / 2)) - 1]
 
+
+# Threaded flux
+for i, lx in enumerate(L_x):
+    for j, ly in enumerate(L_y):
+        print("Lx=" + str(i) + "/" + str(len(L_x)) + ", Ly=" + str(j) + "/" + str(len(L_y)))
+
+        n_sites = int(lx * ly)           # Number of sites in the lattice
+        n_states = n_sites * n_orb       # Number of basis states
+        sites = np.arange(0, lx * ly)    # Array with the number of each site
+        x = sites % lx                   # x position of the sites
+        y = sites // lx                  # y position of the sites
+        gap1 = 100
+
+        for ind in range(len(flux)):
             H = Ham_nw_Bi2Se3(n_sites, n_orb, lx, ly, x, y, 0, C, M, D1, D2, B1, B2, A1, A2, a, flux[ind])
             bands = spectrum(H)[0]
+            gap2 = bands[int(np.floor(n_states / 2))] - bands[int(np.floor(n_states / 2)) - 1]
 
-            if ind == 0:
-                gap0[i, j] = bands[int(np.floor(n_states / 2))] - bands[int(np.floor(n_states / 2)) - 1]
-            else:
+            if gap2 < gap1:
                 gap_flux[i, j] = bands[int(np.floor(n_states / 2))] - bands[int(np.floor(n_states / 2)) - 1]
+                gap1 = gap2
 
 
 

@@ -1,19 +1,20 @@
+"""
+Calculation of the gap dependence with Ly and B in a Bi2Se3 thin film.
+"""
+
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
+from numpy import pi
 import random
 from functions import spectrum, Ham_ThinFilm_Bi2Se3, Ham_ThinFilm_FB3dTI
 
 # %%  Global definitions
 
 # Model
-Blist = [0, 1, 3, 5] #, 1, 2, 3] #, 4, 5, 6, 7]
+Blist = [3]
 L_z = np.arange(2, 20, 1)
-Npoints = 2000
-kym = np.linspace(-0.05, 0.0, Npoints)
-kyp = np.linspace(0.0, 0.05, Npoints)
-ky = np.concatenate((kym, kyp))
-ky = [0]
+Npoints = [10, 100, 1000, 10000, 100000, 1000000]
 
 # Values from the papers
 paper_valuesx = np.array([2, 3, 4, 6, 7, 8, 9, 10, 11, 12])
@@ -37,26 +38,40 @@ lamb_z = 2 * lamb                            # eV
 t = lamb                                     # eV
 
 # Definitions
-gap = np.zeros((len(L_z), len(Blist)))
-
+gap = np.zeros((len(L_z), len(Blist), len(Npoints)))
+a = 10                                       # Lattice constant in Å
+hbar = 1e-34                                 # Planck's constant in Js
+nm = 1e-9                                    # Conversion from nm to m
+ams = 1e-10                                  # Conversion from Å to m
+e = 1.6e-19                                  # Electron charge in C
+phi0 = 2 * pi * hbar / e                     # Quantum of flux
 # %% Diagonalisation
 
 # Band
 for b, B in enumerate(Blist):
     for i, lz in enumerate(L_z):
-        print("B=" + str(b) + ", Lz=" + str(i) + "/" + str(len(L_z)))
 
-        gap1 = 100                # Auxiliary value to minimise the gap
-        n_states = int(4 * lz)    # Number of basis states
-        sites = np.arange(0, lz)  # Array with the number of each site
-        for j, k in enumerate(ky):
-            H = Ham_ThinFilm_Bi2Se3(lz, sites, 0, k, C, M, D1, D2, B1, B2, A1, A2, a, B)
-            bands = spectrum(H)[0]
-            gap2 = bands[int(np.floor(n_states / 2))] - bands[int(np.floor(n_states / 2)) - 1]
-            if gap2 < gap1:
-                gap[i, b] = bands[int(np.floor(n_states / 2))] - bands[int(np.floor(n_states / 2)) - 1]
-                gap1 = gap2
+        z = np.arange(0, lz)  # Array with the number of each site
+        n_states = lz * 4     # Number of basis states
+        band = int(np.floor(n_states / 2))
 
+        for n, Np in enumerate(Npoints):
+
+            print("B=" + str(B) + ", Lz=" + str(i) + "/" + str(len(L_z)) + "Nk=" + str(Np))
+            ky = np.linspace(0, 0.0005, Np)
+            E = np.zeros((n_states, len(ky)))
+
+            # Energy dispersion
+            for j, k in enumerate(ky):
+                H = Ham_ThinFilm_Bi2Se3(lz, z, 0, k, C, M, D1, D2, B1, B2, A1, A2, a, B)
+                E[:, j] = spectrum(H)[0]
+
+            # Gap calculation
+            Eup = min(E[band, :])
+            Edown = max(E[band - 1, :])
+            kup = np.where(E[band, :] == Eup)[0][0]
+            kdown = np.where(E[band - 1, :] == Edown)[0][0]
+            gap[i, b, n] = Eup - Edown  # Gap at the Dirac cone
 
 #%% Figures
 
@@ -73,13 +88,16 @@ ax1.set_xlabel("$L$ unit cells", fontsize=15)
 # ax1.plot(paper_valuesx, paper_valuesy, 'or')
 ax1.set_yscale('log')
 # ax1.legend(("$\phi/\phi_0$=0", "$\phi/\phi_0$=" + str(flux[1])))
-ax1.set_ylim([1e-5, 1e-1])
+ax1.set_ylim([1e-10, 1e-1])
 plt.title("Bi2Se3 Thin Film (010)")
-for i in range(len(Blist)):
+for i in range(len(Npoints)):
     hex = ["#" + ''.join([random.choice('ABCDEF0123456789') for j in range(6)])]
-    ax1.plot(L_z, gap[:, i], '.', color=hex[0], label='$B= $' + str(Blist[i]) + " T")
-    ax1.plot(L_z, gap[:, i], color=hex[0])
-ax1.legend(loc='upper right', ncol=2)
+    hex2 = ["#" + ''.join([random.choice('ABCDEF0123456789') for j in range(6)])]
+    ax1.plot(L_z, gap[:, 0, i], 's', color=hex[0], label='$B= $' + str(Blist[0]) + " T, " + '$N_k= $' + str(Npoints[i]))
+    ax1.plot(L_z, gap[:, 0, i], color=hex[0])
+    # ax1.plot(L_z, gap[:, 1, i], '.', color=hex2[0], label='$B= $' + str(Blist[1]) + " T"+ '$Nk= $' + str(Npoints[i]))
+    # ax1.plot(L_z, gap[:, 1, i], color=hex2[0])
+ax1.legend(loc='upper right', ncol=1)
 plt.show()
 
 # fig2 = plt.figure()
