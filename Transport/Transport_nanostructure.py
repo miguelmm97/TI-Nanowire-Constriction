@@ -10,7 +10,7 @@ start_time = time.time()
 
 # Parameters
 vf = 330                                            # Fermi velocity in meV nm
-E_F = np.linspace(0, 12, 1200)                       # Fermi energy
+E_F = np.linspace(0, 12, 1200)                      # Fermi energy
 B_perp = 0                                          # Perpendicular magnetic field in T
 B_par = 0.2                                         # Parallel magnetic field in T
 
@@ -19,7 +19,7 @@ B_par = 0.2                                         # Parallel magnetic field in
 n_x = 250                                           # Number of points in the grid
 n_leads, n_nc, n_cons = 10, 250, 10                 # Number of points in the grid for each part of the constriction
 sigma = 0.01                                        # Smoothing factor
-L_lead, L_nc, L_cons = 100, 549.7, (800 - 549.7)    # Lengths of the different parts of the constriction
+L_lead, L_nc, L_cons = 100, 594.7, (800 - 594.7)    # Lengths of the different parts of the constriction
 # h_lead, w_lead = 20, 120                            # Height and width of the leads
 # h_cons, w_cons = 20, 120                            # Height and width of the constriction
 # r_lead = (w_lead + h_lead) / pi
@@ -40,21 +40,21 @@ n_modes = int(len(modes))                           # Number of l modes
 G = np.zeros((len(E_F), ))                          # Conductance vector
 
 # Plot of the geometry
-plt.plot(L_grid, R, 'r')
-plt.plot(L_grid, w, '-b')
-plt.plot(L_grid, h, '-m')
-plt.xlabel("$x(nm)$")
-plt.ylabel("$R(nm)$")
-plt.xlim([0, L_grid[-1]])
-plt.ylim([0, h_lead])
-plt.legend(("$R(x)$", "$w(x)$", "$h(x)$"))
-plt.title("Geometry of the nanostructure")
-plt.show()
+# plt.plot(L_grid, R, 'r')
+# plt.plot(L_grid, w, '-b')
+# plt.plot(L_grid, h, '-m')
+# plt.xlabel("$x(nm)$")
+# plt.ylabel("$R(nm)$")
+# plt.xlim([0, L_grid[-1]])
+# plt.ylim([0, h_lead])
+# plt.legend(("$R(x)$", "$w(x)$", "$h(x)$"))
+# plt.title("Geometry of the nanostructure")
+# plt.show()
 #%% Transport calculation
 
 
 for i, E in enumerate(E_F):
-    print(str(i) + "/" + str(len(E_F)-1))
+    start_iter = time.time()
 
     # Transfer matrices for the leads and the constriction
     T_lead = transfer_matrix(modes, w_lead, h_lead, r_lead, 0, dx[0], E, vf, B_par=B_par, B_perp=B_perp)  # Transfer matrix
@@ -82,10 +82,10 @@ for i, E in enumerate(E_F):
     t = scat_matrix[n_modes:, 0: n_modes]      # Transmission matrix
     t_dagger = np.conj(t.T)                    # Conjugate transmission matrix
     G[i] = np.trace(t_dagger @ t)              # Conductance / Gq
+    print('iter: {}/{} | time: {:.3e} s'.format(i, len(E_F), time.time() - start_iter))
 
 
-end_time = time.time()
-print("Elapsed time " + str(end_time - start_time))
+print('Time elapsed: {:.3e} s'.format(time.time() - start_time))
 #%% Figures
 
 # Conductance

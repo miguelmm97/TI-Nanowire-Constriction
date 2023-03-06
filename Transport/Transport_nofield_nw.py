@@ -5,8 +5,9 @@ from numpy import pi
 import matplotlib.pyplot as plt
 from scipy.linalg import expm
 from functions import transfer_to_scattering, transport_checks, thermal_average, finite_voltage_bias
+import time
 
-
+start_time = time.time()
 #%% Parameters
 
 # Constants and set up of the model
@@ -15,7 +16,7 @@ nm = 1e-9                                                       # Conversion fro
 e = 1.6e-19                                                     # Electron charge in C
 G_q = ((e ** 2) / hbar)                                         # Conductance quantum
 vf = 330                                                        # Fermi velocity in meV nm
-w, h = 150, 15                                                  # Width and height of the wire in nm
+w, h = 120, 20                                                  # Width and height of the wire in nm
 L = 300                                                         # Length of the nanowire
 P = (2 * w) + (2 * h)                                           # Perimeter of the wire
 E_F = np.linspace(0, 20, 200)                                 # Fermi energy
@@ -72,6 +73,7 @@ for i, energy in enumerate(E_F):
                                                                       #  (1/R)(n-1/2) delta_nm * sigmaX
     ## Transport calculation
     transfer_matrix = expm(M_tot * L)                                 # Transfer matrix
+
     scat_matrix = transfer_to_scattering(transfer_matrix, n_modes)    # Scattering matrix
     t = scat_matrix[n_modes:, 0: n_modes]                             # Transmission matrix
     t_dagger = np.conj(t.T)                                           # Conjugate transmission matrix
@@ -120,3 +122,6 @@ plt.ylabel("$G/G_Q$")
 plt.title("$B_\perp =0$" + ", $L=$" + str(L) + ", $w=$" + str(w) + ", $h=$" + str(h))
 plt.show()
 
+end_time = time.time()
+
+print('Time elapsed= ' + str(end_time - start_time) + ' s')

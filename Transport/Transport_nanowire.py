@@ -3,20 +3,20 @@
 import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
-from scipy.linalg import expm
-from functions import transfer_to_scattering, transport_calculation, thermal_average, finite_voltage_bias, transfer_matrix, scat_product
+import time
+from functions import transfer_to_scattering, transport_calculation, thermal_average, finite_voltage_bias, transfer_matrix, scat_product, transport_checks
 
-
+start_time = time.time()
 #%% Parameters
 
 # Constants and set up of the model
 phi0 = 2 * pi * 1e-34 / 1.6e-19                                 # Quantum of flux
 vf = 330                                                        # Fermi velocity in meV nm
 w, h = 120, 20                                                  # Width and height of the wire in nm
-L = 1100                                                         # Length of the nanowire
-E_F = np.linspace(0, 60, 200)                                   # Fermi energy
-B_perp = 4                                                      # Perpendicular magnetic field in T
-n_flux = 0                                                      # Number of flux quanta threaded through the wire
+L = 300                                                        # Length of the nanowire
+E_F = np.linspace(0, 20, 100)                                    # Fermi energy
+B_perp = 0                                                      # Perpendicular magnetic field in T
+n_flux = 0.5                                                      # Number of flux quanta threaded through the wire
 B_par = n_flux * phi0 / ((w * h) * 1e-9 ** 2)                   # Parallel magnetic field in T
 
 
@@ -56,7 +56,7 @@ for i, energy in enumerate(E_F):
     # Transport calculation
     T = transfer_matrix(modes, w, h, (w + h) / pi, 0, dx, energy, vf, B_par=B_par, B_perp=B_perp)
     scat_matrix0 = transfer_to_scattering(T, n_modes)                   # Scattering matrix
-    G[i] = transport_calculation(n_modes, T, scat_matrix0, L_grid)      # Conductance / Gq
+    G[i], S = transport_calculation(n_modes, T, scat_matrix0, L_grid)      # Conductance / Gq
 
 
 
@@ -86,7 +86,7 @@ plt.plot(E_F, np.repeat(2, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(4, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(6, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(8, len(E_F)), '-.k')
-plt.xlim(0, 60)
+plt.xlim(0, 20)
 plt.ylim(0, 7)
 # plt.legend(("Numerical", "Analytical", "Thermal Average " + str(T) + "K")) # , "Vb=" + str(eVb) + " meV"))
 plt.xlabel("$E_F$ (meV)")
@@ -94,3 +94,6 @@ plt.ylabel("$G/G_Q$")
 plt.title("$B_\perp =$" + str(B_perp) + ", $L=$" + str(L) + ", $w=$" + str(w) + ", $h=$" + str(h))
 plt.show()
 
+end_time = time.time()
+
+print('Time elapsed= ' + str(end_time - start_time) + ' s')
