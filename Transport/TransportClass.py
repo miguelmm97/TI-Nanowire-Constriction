@@ -160,6 +160,7 @@ class transport:
     vf: float                               # Fermi velocity in meV nm
     B_perp: float                           # Magnetic field perpendicular to the axis of the nanostructure
     B_par: float                            # Magnetic field parallel to the axis of the nanostructure
+    l_cutoff: int
     geometry: dict = field(init=False)      # Dictionary codifying the geometry
     scattering: dict = field(init=False)
     n_regions: int = field(init=False)      # Number of different regions in the nanostructure
@@ -167,6 +168,9 @@ class transport:
     def __post_init__(self):
         self.geometry = {}
         self.n_regions = 0
+        self.modes = np.arange(-self.l_cutoff, self.l_cutoff+1)
+        self.Nmodes = len(self.modes)
+
 
 
     def add_nw(self, x0, xf, mu=0, n_points=None, r=None, w=None, h=None):
@@ -249,16 +253,13 @@ class transport:
         else: self.geometry[self.n_regions]['h'] = geom_nc(x, x0, xf, h1, h2, sigma)  # Height
         self.n_regions += 1                                                           # Add new region to the geometry
 
+    def get_Landauer_conductance(self, E):
 
-    def get_Landauer_conductance(self, l_cutoff, E):
-
-        modes = np.arange(-l_cutoff, l_cutoff+1)
         for i in range(0, self.n_regions):
-
             if self.geometry[i]['type'] == 'nw':
-                M = M_EV(modes, self.geometry[i]['dx'], 0, E + self.geometry[i]['mu'], self.vf)
-                M += M_theta(modes, self.geometry[i]['dx'], self.geometry[i]['r'], 0, self.geometry[i]['w'], self.geometry[i]['h'], B_par=self.B_par)
-                M += M_Ax(modes, self.geometry[i]['dx'], self.geometry[i]['w'], self.geometry[i]['h'], B_perp=self.B_perp)
+                M = M_EV(self.modes, self.geometry[i]['dx'], 0, E + self.geometry[i]['mu'], self.vf)
+                M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'], 0, self.geometry[i]['w'], self.geometry[i]['h'], B_par=self.B_par)
+                M += M_Ax(self.modes, self.geometry[i]['dx'], self.geometry[i]['w'], self.geometry[i]['h'], B_perp=self.B_perp)
 
                 if self.geometry[i]['n_points'] is None:
                     T = expm(M * (self.geometry[i]['xf'] - self.geometry[i]['x0']) / self.geometry[i]['dx'])
@@ -269,7 +270,6 @@ class transport:
                     dS = transfer_to_scattering(dT)
                     for j in range(self.geometry[i]['n_points']):
                         S = dS if (i == 0 and j == 0) else scat_product(S, dS)
-
             else:
                 for j in range(self.geometry[i]['n_points'] - 1):
                     dr = self.geometry[i]['r'][j + 1] - self.geometry[i]['r'][j]
@@ -277,26 +277,68 @@ class transport:
                         w = self.geometry[i]['w'][j]; h = self.geometry[i]['h'][j];
                     except TypeError:
                         w = None; h = None
-                    M = M_EV(modes, self.geometry[i]['dx'], dr, E, self.vf)
-                    M += M_theta(modes, self.geometry[i]['dx'], self.geometry[i]['r'][j], dr, w=w, h=h, B_par=self.B_par)
-                    M += M_Ax(modes, self.geometry[i]['dx'], w, h, B_perp=self.B_perp)
+                    M = M_EV(self.modes, self.geometry[i]['dx'], dr, E, self.vf)
+                    M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'][j], dr, w=w, h=h, B_par=self.B_par)
+                    M += M_Ax(self.modes, self.geometry[i]['dx'], w, h, B_perp=self.B_perp)
                     dT = expm(M)
                     dS = transfer_to_scattering(dT)
                     S = dS if (i == 0 and j == 0) else scat_product(dS, S)
-                    # transport_checks(transfer_matrix=dT, scat_matrix=S, conservation='on', unitarity='on', completeness='on')
-                    n_modes = int(S.shape[0] / 2)
-                    t = S[n_modes:, 0: n_modes]
-                    G = np.trace(t.T.conj() @ t)
-                    a = 1
 
-        n_modes = int(S.shape[0] / 2)
-        t = S[n_modes:, 0: n_modes]
+        t = S[self.Nmodes:, 0: self.Nmodes]
         G = np.trace(t.T.conj() @ t)
         return G
 
+    def get_bands_nw(self, region, k_range):
 
+        # Geometry
+        if self.geometry[region]['type'] != 'nw': raise ValueError('Can only calculate spectrum in a nanowire!')
+        w      = self.geometry[region]['w']     # Width
+        h      = self.geometry[region]['h']     # Height
+        r      = self.geometry[region]['r']     # Radius
+        P      = 2 * (w + h) if r is None else 2 * pi * r
+        Hx     = np.zeros((2 * self.Nmodes, 2 * self.Nmodes))
+        Htheta = np.zeros(Hx.shape)
 
+        # Parallel gauge field: hbar vf 2pi/P (n-1/2) * sigma_y
+        if self.B_par != 0:
+            Ctheta  = 0.5 * (nm ** 2) * e * self.B_par / hbar
+            A_theta = Ctheta * r ** 2 if (w is None or h is None) else Ctheta * (w * h / pi)
+            Mtheta  = np.diag((2 * pi / P) * (self.modes - (1 / 2) + A_theta))
+            Htheta  = self.vf * np.kron(Mtheta, sigma_y)
 
+        # Perpendicular gauge field: e vf < n | A_x | m > * sigma_x
+        if self.B_perp != 0:
+            r_aspect = w / (w + h)
+            Cx = (nm ** 2 / hbar) * e * self.B_perp * P / pi ** 2
+            Ax = np.zeros((self.Nmodes, self.Nmodes), dtype=np.complex128)
+            i  = 0
+            for n1 in self.modes:
+                for n2 in self.modes:
+                    j = 0
+                    if (n1 - n2) % 2 != 0:
+                        m = n1 - n2
+                        Ax[i, j] = Cx * ((-1) ** ((m + 1) / 2)) * np.sin(m * pi * r_aspect / 2) / m ** 2
+                    j += 1
+                i += 1
+            Hx = self.vf * np.kron(Ax, sigma_x)
 
+        # Hamiltonian and energy bands
+        Hxtheta = Hx + Htheta
+        E       = np.zeros((2 * self.Nmodes, len(k_range)))
+        i       = 0
+        for k in k_range:
+            Mk      = (self.vf * k).repeat(self.Nmodes)  # hbar vf k
+            Hk      = np.kron(np.diag(Mk), sigma_x)      # hbar vf k * sigma_x
+            H       = Hk + Hxtheta                        # H(k)
+            E[:, i] = np.linalg.eigvalsh(H)         # E(k)
+            idx     = E[:, i].argsort()                 # Ordering the energy bands at k
+            E[:, i] = E[idx, i]                     # Ordered E(k)
+            i      += 1
 
+        # Bottom of the bands (centrifugal potential)
+        V  = np.linalg.eigvalsh(Hxtheta)
+        idx     = V.argsort()
+        V = V[idx]
+
+        return E, V
 

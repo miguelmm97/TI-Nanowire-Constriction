@@ -11,12 +11,12 @@ nm = 1e-9                                       # Conversion from nm to m
 e = 1.6e-19                                     # Electron charge in C
 phi0 = 2 * pi * hbar / e                        # Quantum of flux
 vf = 330                                        # Fermi velocity in meV nm
-w, h = 25, 25                                   # Width and height of the wire in nm
+w, h = 250, 250                                   # Width and height of the wire in nm
 P = (2 * w) + (2 * h)                           # Perimeter of the wire
 r = w / (w + h)                                 # Useful ratio
-B_perp = 10                                     # Perpendicular magnetic field in T
+B_perp = 0                                    # Perpendicular magnetic field in T
 n_flux = 0                                      # Number of flux quanta threaded through the wire
-B_par = n_flux * phi0 / ((w * h) * nm ** 2)     # Parallel magnetic field in T
+B_par = 0.2 # n_flux * phi0 / ((w * h) * nm ** 2)     # Parallel magnetic field in T
 
 # Declarations
 k = np.linspace(-10, 10, 5000)                  # Momentum in 1/nm

@@ -1,6 +1,7 @@
 import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 from TransportClass import transport
 import time
 
@@ -8,44 +9,71 @@ start_time = time.time()
 #%% Parameters
 
 # Constants and set up of the model
-phi0 = 2 * pi * 1e-34 / 1.6e-19                                           # Quantum of flux
-vf = 330                                                                  # Fermi velocity in meV nm
-B_perp = 0                                                                # Perpendicular magnetic field in T
-n_flux = 0.5                                                              # Number of flux quanta threaded
-B_par = 0.2  # n_flux * phi0 / (120 * 20 * 1e-9 * 1e-9)                          # Parallel magnetic field in T
-l_cutoff = 2                                                            # Cutoff number modes
-fermi = np.linspace(0, 12, 12)                                            # Fermi level
-G = np.zeros(fermi.shape)                                                 # Conductance preallocation
-nanostructure = transport(vf, B_perp, B_par)                              # Instance of the transport class
+phi0     = 2 * pi * 1e-34 / 1.6e-19                                  # Quantum of flux
+vf       = 330                                                       # Fermi velocity in meV nm
+B_perp   = 0                                                         # Perpendicular magnetic field in T
+n_flux   = 0.5                                                       # Number of flux quanta threaded
+B_par    = 0.2  # n_flux * phi0 / (120 * 20 * 1e-9 * 1e-9)           # Parallel magnetic field in T
+l_cutoff = 30                                                        # Cutoff number modes
+fermi    = np.linspace(0, 12, 120)                                   # Fermi level
+G        = np.zeros(fermi.shape)                                     # Conductance preallocation
+model    = transport(vf, B_perp, B_par, l_cutoff)                    # Instance of the transport class
 
 # Geometry
 x0 = 0; x1 = 100; x2 = x1 + 594.7; x3 = x2 + 800 - 594.7; x4 = x3 + 594.7; x5 = x4 + 100
 r_lead = 156.6; r_cons = r_lead / 2
-sigma = 0.01                                                              # Smoothing factor
-# nanostructure.add_nw(x0, x1, n_points=100, r=r_lead)                       # Lead 1
-nanostructure.add_nc(x1, x2, 250, sigma=sigma, r1=r_lead, r2=r_cons)      # Nanocone 1
-# nanostructure.add_nw(x2, x3, n_points=10, r=r_cons)                       # Constriction
-# nanostructure.add_nc(x3, x4, 250, sigma=sigma, r1=r_cons, r2=r_lead)      # Nanocone 2
-# nanostructure.add_nw(x4, x5, n_points=10, r=r_lead)                       # Lead 2
+sigma  = 0.01                                                             # Smoothing factor
+model.add_nw(x0, x1, r=r_lead)                                    # Lead 1
+model.add_nc(x1, x2, 250, sigma=sigma, r1=r_lead, r2=r_cons)      # Nanocone 1
+model.add_nw(x2, x3, r=r_cons)                                    # Constriction
+model.add_nc(x3, x4, 250, sigma=sigma, r1=r_cons, r2=r_lead)      # Nanocone 2
+model.add_nw(x4, x5, r=r_lead)                                    # Lead 2
 
+
+# Bands in the leads and in the constriction
+k_range         = np.linspace(-0.5, 0.5, 1000)
+Eleads, Vleads  = model.get_bands_nw(0, k_range)
+Econs, Vcons    = model.get_bands_nw(2, k_range)
 
 # Conductance calculation
 for i, E in enumerate(fermi):
     start_iter = time.time()
-    G[i] = nanostructure.get_Landauer_conductance(l_cutoff, E)
+    G[i]       = model.get_Landauer_conductance(E)
     print('iter: {}/{} | time: {:.3e} s | G: {:.2e}'.format(i, len(fermi), time.time() - start_iter, G[i]))
 
 # Figures
-plt.plot(fermi, G, 'k', markersize=5)
-plt.plot(fermi, np.repeat(2, len(fermi)), '-.k')
-plt.plot(fermi, np.repeat(4, len(fermi)), '-.k')
-plt.plot(fermi, np.repeat(6, len(fermi)), '-.k')
-plt.plot(fermi, np.repeat(8, len(fermi)), '-.k')
-plt.xlim(0, max(fermi))
-plt.ylim(0, 7)
-plt.xlabel("$E_F$ (meV)")
-plt.ylabel("$G/G_Q$")
-#plt.title("$B_\perp =$" + str(B_perp) + ", $L=$" + str(xf) + ", $w=$" + str(w) + ", $h=$" + str(h))
+fig = plt.figure(figsize=(12, 6))
+gs  = GridSpec(2, 2, figure=fig)
+ax1 = fig.add_subplot(gs[0, 0])
+ax2 = fig.add_subplot(gs[0, 1])
+ax3 = fig.add_subplot(gs[1, 0:2])
+
+for i in range(len(Eleads[:, 0])):
+    ax1.plot(k_range, Eleads[i, :], '.b', markersize=2)
+    ax2.plot(k_range, Econs[i, :], '.b', markersize=2)
+    # ax1.plot(k_range, np.ones(k_range.shape) * Vleads[i], '--k')
+    # ax2.plot(k_range, np.ones(k_range.shape) * Vcons[i], '--k')
+
+ax1.set_xlim(-0.2, 0.2)
+ax1.set_ylim(-10, 10)
+ax1.set_xlabel("$k/a$")
+ax1.set_ylabel("$E_{lead}$")
+ax2.set_xlim(-0.2, 0.2)
+ax2.set_ylim(-12, 12)
+ax2.set_xlabel("$k/a$")
+ax2.set_ylabel("$E_{constriction}$")
+
+ax3.plot(fermi, G, 'k', markersize=5)
+ax3.plot(fermi, np.repeat(2, len(fermi)), '-.k')
+ax3.plot(fermi, np.repeat(4, len(fermi)), '-.k')
+ax3.plot(fermi, np.repeat(6, len(fermi)), '-.k')
+ax3.plot(fermi, np.repeat(8, len(fermi)), '-.k')
+for i in range(len(Vcons)):
+    ax3.plot(np.ones((10,)) * Vcons[i], np.linspace(0, max(fermi), 10), '--k')
+ax3.set_xlim(0, max(fermi))
+ax3.set_ylim(0, 7)
+ax3.set_xlabel("$E_F$ (meV)")
+ax3.set_ylabel("$G/G_Q$")
 plt.show()
 
 print('Time elapsed: {:.2e} s'.format(time.time() - start_time))
