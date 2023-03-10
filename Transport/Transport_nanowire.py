@@ -13,8 +13,8 @@ start_time = time.time()
 phi0 = 2 * pi * 1e-34 / 1.6e-19                                 # Quantum of flux
 vf = 330                                                        # Fermi velocity in meV nm
 w, h = 120, 20                                                  # Width and height of the wire in nm
-L = 300                                                        # Length of the nanowire
-E_F = np.linspace(0, 20, 100)                                    # Fermi energy
+L = 300                                                       # Length of the nanowire
+E_F = np.linspace(0, 20, 200)                                    # Fermi energy
 B_perp = 0                                                      # Perpendicular magnetic field in T
 n_flux = 0.5                                                      # Number of flux quanta threaded through the wire
 B_par = n_flux * phi0 / ((w * h) * 1e-9 ** 2)                   # Parallel magnetic field in T
@@ -87,7 +87,7 @@ plt.plot(E_F, np.repeat(4, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(6, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(8, len(E_F)), '-.k')
 plt.xlim(0, 20)
-plt.ylim(0, 7)
+plt.ylim(0, 6)
 # plt.legend(("Numerical", "Analytical", "Thermal Average " + str(T) + "K")) # , "Vb=" + str(eVb) + " meV"))
 plt.xlabel("$E_F$ (meV)")
 plt.ylabel("$G/G_Q$")

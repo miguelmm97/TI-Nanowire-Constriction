@@ -11,12 +11,12 @@ nm = 1e-9                                       # Conversion from nm to m
 e = 1.6e-19                                     # Electron charge in C
 phi0 = 2 * pi * hbar / e                        # Quantum of flux
 vf = 330                                        # Fermi velocity in meV nm
-w, h = 250, 250                                   # Width and height of the wire in nm
+w, h = 120, 20                                  # Width and height of the wire in nm
 P = (2 * w) + (2 * h)                           # Perimeter of the wire
 r = w / (w + h)                                 # Useful ratio
 B_perp = 0                                    # Perpendicular magnetic field in T
-n_flux = 0                                      # Number of flux quanta threaded through the wire
-B_par = 0.2 # n_flux * phi0 / ((w * h) * nm ** 2)     # Parallel magnetic field in T
+n_flux = 0.5                                      # Number of flux quanta threaded through the wire
+B_par = n_flux * phi0 / ((w * h) * nm ** 2)     # Parallel magnetic field in T
 
 # Declarations
 k = np.linspace(-10, 10, 5000)                  # Momentum in 1/nm
@@ -53,7 +53,7 @@ ham_y = np.kron(np.diag(aux_l), sigma_y)                      # hbar vf 2pi/P (n
 for index in range(n_k):
     aux_k = (vf * k[index]).repeat(n_modes)                   # hbar vf k
     ham_x = np.kron(np.diag(aux_k), sigma_x)                  # hbar vf k * sigma_x
-    Hamiltonian = ham_x + ham_y + ham_offdiag                 # H(k)
+    Hamiltonian = ham_x  + ham_y + ham_offdiag                 # H(k)
 
     ## Energy bands
     energy[:, index] = np.linalg.eigvalsh(Hamiltonian)        # E(k)
@@ -67,8 +67,8 @@ for index in range(int(n_modes * n_s)):
     plt.plot(k, energy[index, :], "b", markersize=2)
 plt.xlabel("$k(nm^{-1})$")
 plt.ylabel("$E(meV)$")
-plt.xlim(-0.4, 0.4)
-plt.ylim(-100, 100)
+plt.xlim(-0.5, 0.5)
+plt.ylim(-60, 60)
 plt.title("$B_\perp =$" + str(B_perp))
 # plt.legend(string_legend)
 plt.show()

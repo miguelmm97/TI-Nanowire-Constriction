@@ -7,7 +7,7 @@ import numpy as np
 import numba as nb
 from numba import njit  # "nopython just in time (compiler)"
 
-nb.set_num_threads(1)
+# nb.set_num_threads(1)
 
 # Constants
 hbar = 1e-34                # Planck's constant in Js
@@ -34,21 +34,21 @@ def geom_nc(x, x1, x2, r1, r2, sigma=None):
     # x2, r2: Final narrow part
     return r1 + (r2 - r1) * step(x, x2, sigma) + ((r2 - r1) / (x2 - x1)) * (x - x1) * (step(x, x1, sigma) - step(x, x2, sigma))
 
-@njit(parallel=True, cache=True)
+# @njit(parallel=True, cache=True)
 def M_Ax(modes, dx, w, h, B_perp=0):
 
     if w is None or h is None: return 0
+
     else:
         P = 2 * (w + h)                                                    # Perimeter of the nanostructure at x (in nm)
         r = w / (w + h)                                                    # Aspect ratio of the nanostructure at x (in nm)
         C = - 1j * (nm ** 2 / hbar) * e * B_perp * P / pi ** 2             # Auxiliary constant for the matrix elements
         M = np.zeros(shape=(len(modes), len(modes)), dtype=np.complex128)  # Mode mixing matrix for the vector potential
-
         if B_perp != 0:
             i = 0
             for n1 in modes:
+                j = 0
                 for n2 in modes:
-                    j = 0
                     if (n1 - n2) % 2 != 0:
                         m = n1 - n2
                         M[i, j] = C * ((-1) ** ((m + 1) / 2)) * np.sin(m * pi * r / 2) / m ** 2
@@ -57,7 +57,7 @@ def M_Ax(modes, dx, w, h, B_perp=0):
 
         return np.kron(sigma_0, M) * dx
 
-@njit(parallel=True, cache=True)
+# @njit(parallel=True, cache=True)
 def M_theta(modes, dx, R, dR, w=None, h=None, B_par=0):
 
     C = 0.5 * (nm ** 2) * e * B_par / hbar
@@ -66,7 +66,7 @@ def M_theta(modes, dx, R, dR, w=None, h=None, B_par=0):
 
     return np.kron(sigma_x, M) * dx
 
-@njit(parallel=True, cache=True)
+# @njit(parallel=True, cache=True)
 def M_EV(modes, dx, dR, E, vf):
 
     M = (1j / vf) * np.sqrt(1 + dR ** 2) * (E * np.eye(len(modes), dtype=np.complex128))  # i ( E delta_nm + V_nm) / vf term
@@ -171,8 +171,6 @@ class transport:
         self.modes = np.arange(-self.l_cutoff, self.l_cutoff+1)
         self.Nmodes = len(self.modes)
 
-
-
     def add_nw(self, x0, xf, mu=0, n_points=None, r=None, w=None, h=None):
         """
         Adds a nanowire to the geometry of the nanostructure.
@@ -230,6 +228,7 @@ class transport:
         None, but updates self. geometry
 
         """
+
         if self.n_regions != 0 and x0 != self.geometry[self.n_regions - 1]['xf']: raise ValueError('Regions dont match')
         if r1 is None and (w1 is None or h1 is None): raise ValueError('Need to specify r or (w, h)')
         if r2 is None and (w2 is None or h2 is None): raise ValueError('Need to specify r or (w, h)')
@@ -254,6 +253,17 @@ class transport:
         self.n_regions += 1                                                           # Add new region to the geometry
 
     def get_Landauer_conductance(self, E):
+        """
+        Calculates the Landauer conductance along the whole geometry at the Fermi energy E.
+
+        Param:
+        ------
+        E: {float} Fermi energy
+
+        Return:
+        ------
+        G: {float} COnductance at the Fermi energy
+        """
 
         for i in range(0, self.n_regions):
             if self.geometry[i]['type'] == 'nw':
@@ -289,55 +299,66 @@ class transport:
         return G
 
     def get_bands_nw(self, region, k_range):
+        """
+        Calculates the spectrum of the region indicated. It must be a nanowire, and it assumes translation invariance.
+
+        Params:
+        ------
+        region:       {int} Number of the region of the geometry in which we want to calculate the bands
+        k_range: {np.array} Range of momenta within which we calculate the bands
+
+        Returns:
+        -------
+        E: {np.array(len(2Nmodes, len(k)} Energy bands
+        V:        {np.array(len(2Nmodes)} Bottom of the bands i.e. centrifugal potential
+        """
 
         # Geometry
         if self.geometry[region]['type'] != 'nw': raise ValueError('Can only calculate spectrum in a nanowire!')
-        w      = self.geometry[region]['w']     # Width
-        h      = self.geometry[region]['h']     # Height
-        r      = self.geometry[region]['r']     # Radius
-        P      = 2 * (w + h) if r is None else 2 * pi * r
-        Hx     = np.zeros((2 * self.Nmodes, 2 * self.Nmodes))
-        Htheta = np.zeros(Hx.shape)
+        w = self.geometry[region]['w']                  # Width
+        h = self.geometry[region]['h']                  # Height
+        r = self.geometry[region]['r']                  # Radius
+        P = 2 * (w + h) if r is None else 2 * pi * r    # Perimeter
 
-        # Parallel gauge field: hbar vf 2pi/P (n-1/2) * sigma_y
+        # Parallel gauge field: hbar vf 2pi/P (n-1/2 + A) * sigma_y
+        A_theta = 0
         if self.B_par != 0:
             Ctheta  = 0.5 * (nm ** 2) * e * self.B_par / hbar
-            A_theta = Ctheta * r ** 2 if (w is None or h is None) else Ctheta * (w * h / pi)
-            Mtheta  = np.diag((2 * pi / P) * (self.modes - (1 / 2) + A_theta))
-            Htheta  = self.vf * np.kron(Mtheta, sigma_y)
+            A_theta = Ctheta * r ** 2 if (w is None or h is None) else Ctheta * (w * h) / pi
+        Mtheta  = np.diag((2 * pi / P) * (self.modes - (1 / 2) + A_theta))
+        Hxtheta = self.vf * np.kron(Mtheta, sigma_y)
 
         # Perpendicular gauge field: e vf < n | A_x | m > * sigma_x
         if self.B_perp != 0:
             r_aspect = w / (w + h)
             Cx = (nm ** 2 / hbar) * e * self.B_perp * P / pi ** 2
-            Ax = np.zeros((self.Nmodes, self.Nmodes), dtype=np.complex128)
-            i  = 0
+            Ax  = np.zeros((self.Nmodes, self.Nmodes), dtype=np.complex128)
+            i = 0
             for n1 in self.modes:
+                j = 0
                 for n2 in self.modes:
-                    j = 0
                     if (n1 - n2) % 2 != 0:
                         m = n1 - n2
                         Ax[i, j] = Cx * ((-1) ** ((m + 1) / 2)) * np.sin(m * pi * r_aspect / 2) / m ** 2
                     j += 1
                 i += 1
-            Hx = self.vf * np.kron(Ax, sigma_x)
+            Hxtheta += self.vf * np.kron(Ax, sigma_x)
 
         # Hamiltonian and energy bands
-        Hxtheta = Hx + Htheta
-        E       = np.zeros((2 * self.Nmodes, len(k_range)))
-        i       = 0
+        i = 0
+        E = np.zeros((2 * self.Nmodes, len(k_range)))
         for k in k_range:
-            Mk      = (self.vf * k).repeat(self.Nmodes)  # hbar vf k
-            Hk      = np.kron(np.diag(Mk), sigma_x)      # hbar vf k * sigma_x
-            H       = Hk + Hxtheta                        # H(k)
+            Mk = (self.vf * k).repeat(self.Nmodes)  # hbar vf k
+            Hk = np.kron(np.diag(Mk), sigma_x)      # hbar vf k * sigma_x
+            H = Hk + Hxtheta                       # H(k)
             E[:, i] = np.linalg.eigvalsh(H)         # E(k)
-            idx     = E[:, i].argsort()                 # Ordering the energy bands at k
+            idx = E[:, i].argsort()                 # Ordering the energy bands at k
             E[:, i] = E[idx, i]                     # Ordered E(k)
-            i      += 1
+            i += 1
 
         # Bottom of the bands (centrifugal potential)
-        V  = np.linalg.eigvalsh(Hxtheta)
-        idx     = V.argsort()
+        V = np.linalg.eigvalsh(Hxtheta)
+        idx = V.argsort()
         V = V[idx]
 
         return E, V
