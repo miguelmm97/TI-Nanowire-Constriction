@@ -18,7 +18,7 @@ G_q = ((e ** 2) / hbar)                                         # Conductance qu
 vf = 330                                                        # Fermi velocity in meV nm
 w, h = 120, 20                                                  # Width and height of the wire in nm
 L = 300                                                         # Length of the nanowire
-P = (2 * w) + (2 * h)                                           # Perimeter of the wire
+P = 2 * pi * 150                                           # Perimeter of the wire
 E_F = np.linspace(0, 20, 200)                                 # Fermi energy
 
 
@@ -115,7 +115,7 @@ plt.plot(E_F, np.repeat(4, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(6, len(E_F)), '-.k')
 plt.plot(E_F, np.repeat(8, len(E_F)), '-.k')
 plt.xlim(0, 20)
-plt.ylim(0, 7)
+plt.ylim(0, 10)
 plt.legend(("Numerical", "Analytical", "Thermal Average " + str(T) + "K")) # , "Vb=" + str(eVb) + " meV"))
 plt.xlabel("$E_F$ (meV)")
 plt.ylabel("$G/G_Q$")

@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-import numpy as np
 from numpy import pi
 from numpy.linalg import inv
 from scipy.linalg import expm
@@ -67,9 +66,14 @@ def M_theta(modes, dx, R, dR, w=None, h=None, B_par=0):
     return np.kron(sigma_x, M) * dx
 
 # @njit(parallel=True, cache=True)
-def M_EV(modes, dx, dR, E, vf):
+def M_EV(modes, dx, dR, E, vf, Vnm=None):
 
-    M = (1j / vf) * np.sqrt(1 + dR ** 2) * (E * np.eye(len(modes), dtype=np.complex128))  # i ( E delta_nm + V_nm) / vf term
+    if Vnm is None: Vnm = np.zeros(len(modes))
+    else:
+        if Vnm.shape != (len(modes), len(modes)):
+            raise AssertionError('Vnm must be the Fourier transform matrix of V')
+
+    M = (1j / vf) * np.sqrt(1 + dR ** 2) * (E * np.eye(len(modes)) - Vnm)  # i ( E delta_nm + V_nm) / vf term
     return np.kron(sigma_z, M) * dx
 
 def transfer_to_scattering(transfer_matrix: 'np.ndarray[np.complex128]'):
@@ -171,7 +175,7 @@ class transport:
         self.modes = np.arange(-self.l_cutoff, self.l_cutoff+1)
         self.Nmodes = len(self.modes)
 
-    def add_nw(self, x0, xf, mu=0, n_points=None, r=None, w=None, h=None):
+    def add_nw(self, x0, xf, Vnm=None, n_points=None, r=None, w=None, h=None):
         """
         Adds a nanowire to the geometry of the nanostructure.
 
@@ -199,14 +203,14 @@ class transport:
         if n_points is None: self.geometry[self.n_regions]['dx'] = 100         # X increment
         else: self.geometry[self.n_regions]['dx'] = abs(xf - x0) / n_points    # X increment
         self.geometry[self.n_regions]['n_points'] = n_points                   # Number of points in the discretisation
-        self.geometry[self.n_regions]['mu'] = mu                               # Chemical potential
+        self.geometry[self.n_regions]['V'] = Vnm                               # External potential
 
         self.geometry[self.n_regions]['r'] = (w + h) / pi if r is None else r  # Radius
         self.geometry[self.n_regions]['w'] = w                                 # Width
         self.geometry[self.n_regions]['h'] = h                                 # Height
         self.n_regions += 1                                                    # Add new region to the geometry
 
-    def add_nc(self, x0, xf, n_points, mu=0, sigma=None, r1=None, r2=None, w1=None, w2=None, h1=None, h2=None):
+    def add_nc(self, x0, xf, n_points, Vnm=None, sigma=None, r1=None, r2=None, w1=None, w2=None, h1=None, h2=None):
         """
         Adds a nanowire to the geometry of the nanostructure.
 
@@ -239,7 +243,7 @@ class transport:
         self.geometry[self.n_regions]['xf'] = xf                                      # Final point
         self.geometry[self.n_regions]['dx'] = abs(xf - x0)/n_points                   # X increment
         self.geometry[self.n_regions]['n_points'] = n_points                          # Number of points in the discretisation
-        self.geometry[self.n_regions]['mu'] = mu  # Chemical potential
+        self.geometry[self.n_regions]['V'] = Vnm                                      # External potential
 
         r1 = (w1 + h1) / pi if r1 is None else r1                                     # Initial radius
         r2 = (w2 + h2) / pi if r2 is None else r2                                     # Final radius
@@ -262,12 +266,12 @@ class transport:
 
         Return:
         ------
-        G: {float} COnductance at the Fermi energy
+        G: {float} Conductance at the Fermi energy
         """
 
         for i in range(0, self.n_regions):
             if self.geometry[i]['type'] == 'nw':
-                M = M_EV(self.modes, self.geometry[i]['dx'], 0, E + self.geometry[i]['mu'], self.vf)
+                M = M_EV(self.modes, self.geometry[i]['dx'], 0, E, self.vf, self.geometry[i]['V'])
                 M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'], 0, self.geometry[i]['w'], self.geometry[i]['h'], B_par=self.B_par)
                 M += M_Ax(self.modes, self.geometry[i]['dx'], self.geometry[i]['w'], self.geometry[i]['h'], B_perp=self.B_perp)
 
@@ -287,7 +291,7 @@ class transport:
                         w = self.geometry[i]['w'][j]; h = self.geometry[i]['h'][j];
                     except TypeError:
                         w = None; h = None
-                    M = M_EV(self.modes, self.geometry[i]['dx'], dr, E, self.vf)
+                    M = M_EV(self.modes, self.geometry[i]['dx'], dr, E, self.vf, self.geometry[i]['V'])
                     M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'][j], dr, w=w, h=h, B_par=self.B_par)
                     M += M_Ax(self.modes, self.geometry[i]['dx'], w, h, B_perp=self.B_perp)
                     dT = expm(M)
