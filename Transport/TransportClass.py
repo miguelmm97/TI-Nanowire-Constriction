@@ -354,7 +354,7 @@ class transport:
         for k in k_range:
             Mk = (self.vf * k).repeat(self.Nmodes)  # hbar vf k
             Hk = np.kron(np.diag(Mk), sigma_x)      # hbar vf k * sigma_x
-            H = Hk + Hxtheta                       # H(k)
+            H = Hk + Hxtheta                        # H(k)
             E[:, i] = np.linalg.eigvalsh(H)         # E(k)
             idx = E[:, i].argsort()                 # Ordering the energy bands at k
             E[:, i] = E[idx, i]                     # Ordered E(k)
