@@ -19,31 +19,30 @@ Adis      = 5                                                       # Disorder a
 
 
 #%% Geometry for an array of wells
-model1 = transport(vf, B_perp, B_par, l_cutoff)                     # Instance of the transport class
-n_wells = 20
-r1 = 50; conf_gap1 = vf / r1
-L1 = 150; L2 = 2* L1; x0 = 0
-V1 = 4 * conf_gap1
-Vnm1 = np.eye(2 * l_cutoff + 1)
-
-for i in np.arange(n_wells):
-    Vdis = conf_gap1  * np.random.uniform(-Adis, Adis, size=1)
-    if i == 0:
-        model1.add_nw(x0, x0 + L1, r=r1)
-        x0 = x0 + L1
-    model1.add_nw(x0, x0 + L2, r=r1, Vnm=-Vnm1 * Vdis)
-    model1.add_nw(x0 + L2, x0 + L2 + L1, r=r1)
-    x0 = x0 + L1 + L2
+# model1 = transport(vf, B_perp, B_par, l_cutoff)                     # Instance of the transport class
+# n_wells = 20
+# r1 = 50; conf_gap1 = vf / r1
+# L1 = 150; L2 = 2* L1; x0 = 0
+# V1 = 4 * conf_gap1
+# Vnm1 = np.eye(2 * l_cutoff + 1)
+#
+# for i in np.arange(n_wells):
+#     Vdis = conf_gap1  * np.random.uniform(-Adis, Adis, size=1)
+#     if i == 0:
+#         model1.add_nw(x0, x0 + L1, r=r1)
+#         x0 = x0 + L1
+#     model1.add_nw(x0, x0 + L2, r=r1, Vnm=-Vnm1 * Vdis)
+#     model1.add_nw(x0 + L2, x0 + L2 + L1, r=r1)
+#     x0 = x0 + L1 + L2
 
 #%% Geometry for different nanorwires
-# model2 = transport(vf, B_perp, B_par, l_cutoff)                    # Instance of the transport class
-# r2 = 50; conf_gap2 = vf / r2
-# x02 = 0; x12 = 150; x22 = 3 * x12; x32 = x22 + x12
-# V2 = 4 * conf_gap2
-# Vnm2 = V2 * np.eye(2 * l_cutoff + 1)
-# model2.add_nw(x02, x12, r=r2)
-# model2.add_nw(x12, x22, r=r2, Vnm=-Vnm2)
-# model2.add_nw(x22, x32, r=r2)
+model2 = transport(vf, B_perp, B_par, l_cutoff)                    # Instance of the transport class
+r2 = 8; conf_gap2 = vf / r2
+x02 = 0; x12 = 50; x22 = 3 * x12; x32 = x22 + x12
+V2 = 4 * conf_gap2
+Vnm2 = V2 * np.eye(2 * l_cutoff + 1)
+model2.add_nw(x02, x12, r=r2)
+
 
 # Geometry
 # model3 = transport(vf, B_perp, B_par, l_cutoff)                    # Instance of the transport class
@@ -67,20 +66,20 @@ for i in np.arange(n_wells):
 #
 
 # Bands
-k_range = np.linspace(-1, 1, 5000)
-Enw, Vnw = model1.get_bands_nw(0, k_range)
+# k_range = np.linspace(-1, 1, 5000)
+# Enw, Vnw = model1.get_bands_nw(0, k_range)
 
 #%% Conductance calculation
 # fermi     = np.linspace(-0.5 * conf_gap1, 0.5 * conf_gap1, 500)      # Fermi level
-fermi     = np.linspace(-60, 50, 1000)
+fermi     = np.linspace(-conf_gap2 - 10, conf_gap2 + 10, 1000)
 G1        = np.zeros(fermi.shape)                                    # Conductance preallocation
 G2        = np.zeros(fermi.shape)                                    # Conductance preallocation
 G3        = np.zeros(fermi.shape)                                    # Conductance preallocation
 G4        = np.zeros(fermi.shape)                                    # Conductance preallocation
 for i, E in enumerate(fermi):
     start_iter = time.time()
-    G1[i] = model1.get_Landauer_conductance(E)
-    # G2[i] = model2.get_Landauer_conductance(E)
+    # G1[i] = model1.get_Landauer_conductance(E)
+    G2[i] = model2.get_Landauer_conductance(E)
     # G3[i] = model3.get_Landauer_conductance(E)
     # G4[i] = model4.get_Landauer_conductance(E)
     print('iter: {}/{} | time: {:.3e} s | G: {:.2e}'.format(i, len(fermi), time.time() - start_iter, G1[i]))
@@ -122,8 +121,8 @@ ax3.plot(fermi, G1, color='#6495ED')
 ax3.plot(fermi, G2, color='#FF7256')
 ax3.plot(fermi, G3, color='#CD2626')
 ax3.plot(fermi, G4, color='#00CD66')
-for i in range(len(Vnw)):
-    ax3.plot(np.ones((10,)) * Vnw[i], np.linspace(0, max(fermi), 10), color='#A9A9A9', alpha=0.5)
+# for i in range(len(Vnw)):
+    # ax3.plot(np.ones((10,)) * Vnw[i], np.linspace(0, max(fermi), 10), color='#A9A9A9', alpha=0.5)
     # ax3.plot(np.ones((10,)) * (Vnw2[i] - V), np.linspace(0, max(fermi), 10), '--', color='#A9A9A9', alpha=0.5)
 # ax3.plot(-0.5 * V1 * np.ones((10,)), np.linspace(0, 10, 10), '--', color='b', alpha=0.5, label='$\Delta V/2$')
 # ax3.plot(0 * np.ones((10,)), np.linspace(0, 10, 10), '--', color='r', alpha=0.5, label='$V_{nw}$')
@@ -134,16 +133,16 @@ for i in range(len(Vnw)):
 # ax3.plot((-V1 -0.5 * conf_gap1) * np.ones((10,)), np.linspace(0, 10, 10), '--', color='#A9A9A9', alpha=0.5)
 # for i in range(1, 20):
 #     ax3.plot(fermi, np.repeat(i, len(fermi)), color='#A9A9A9', alpha=0.5)
-ax3.axvspan(-V1 - 0.5 * conf_gap1, -V1 + 0.5 * conf_gap1, color='#A9A9A9', alpha=0.5, lw=0)
-ax3.axvspan(-0.5 * conf_gap1, 0.5 * conf_gap1, color='#A9A9A9', alpha=0.5, lw=0)
-ax3.axvspan(-0.5 * conf_gap1 - V1, 0.5 * conf_gap1, color='#FFA07A', alpha=0.5, lw=0)
+# ax3.axvspan(-V1 - 0.5 * conf_gap1, -V1 + 0.5 * conf_gap1, color='#A9A9A9', alpha=0.5, lw=0)
+# ax3.axvspan(-0.5 * conf_gap1, 0.5 * conf_gap1, color='#A9A9A9', alpha=0.5, lw=0)
+# ax3.axvspan(-0.5 * conf_gap1 - V1, 0.5 * conf_gap1, color='#FFA07A', alpha=0.5, lw=0)
 
 
 ax3.set_xlim(min(fermi), max(fermi))
 ax3.set_ylim(0, 10)
 ax3.set_xlabel("$E_F$ [meV]")
 ax3.set_ylabel("$G[2e^2/h]$")
-ax3.set_title('$n_w=$ {}, $L_1=L_3=$ {} nm, $L_2=$ {}, $r$ = {} nm, $\Delta V=$ {} meV'.format(n_wells, L1, L2, r1, V1))
+# ax3.set_title('$n_w=$ {}, $L_1=L_3=$ {} nm, $L_2=$ {}, $r$ = {} nm, $\Delta V=$ {} meV'.format(n_wells, L1, L2, r1, V1))
 # ax3.set_title('$r=$ {} nm, $L_1=$ {} nm, $L_2=$ {} nm, $\Delta V= {} $meV'.format(r, x1, x2-x1, V))
 # ax3.set_title('Nanowire conductance for a potential well with $L_1=L_3=$ {} nm, $L_2=$ {}, $r$ = {} nm'.format(x11, x21-x11, r1))
 # ax3.set_title('Nanowire conductance for a potential step, $L=$ {} nm, $r=$ {} nm'.format(x11, r1))

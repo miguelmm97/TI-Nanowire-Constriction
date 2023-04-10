@@ -1,9 +1,46 @@
 import numpy as np
+import argparse
 import time
 import random
 import matplotlib.pyplot as plt
 from numpy import pi
 from TransportClass import transport
+
+
+parser = argparse.ArgumentParser(description='Argument parser for Transport_RotSymPotential.py')
+
+# Constants of the model
+parser.add_argument('-vf',       '--fermi_velocity',              type=float,    default=330,       help='Fermi velocity in meV nm')
+parser.add_argument('-Bperp',    '--perpendicular_field',         type=float,    default=0,         help='Perpendicular magnetic field in T')
+parser.add_argument('-Bpar',     '--parallel_field',              type=float,    default=0,         help='Parallel magnetic field in T')
+parser.add_argument('-flux',     '--flux_quanta',                 type=int,      default=0,         help='Number of flux quanta threaded')
+parser.add_argument('-lcut',     '--angular_momentum_cutoff',     type=int,      default=30,        help='Cutoff on the number of angular momentum modes')
+
+# Set up of the geometry
+parser.add_argument('-L',        '--total_length',                type=float,    default=500,       help='Total length of the nanostructure in nm')
+parser.add_argument('-Nreg',     '--number_regions',              type=int,      default=10,        help='Number of regions in the nanostructure')
+parser.add_argument('-Vmax',     '--maximum_potential',           type=float,    default=0,         help='Maximum possible value of the potential')
+
+# Known potential landscape
+parser.add_argument('-V',        '--potential',                   type=float,    default=0,         help='Potential for the different regions',             action='append', nargs='+')
+
+# Random Potential Landscape
+parser.add_argument('-disV',     '--disorder_potential',          type=bool,     default=False,     help='Implements disorder in the potential')
+parser.add_argument('-disL',     '--disorder_length',             type=bool,     default=False,     help='Implements disorder in the region length')
+
+# Radii and confinement gaps
+parser.add_argument('-Ncalc',    '--number_calculations',         type=int,      default=1,         help='Number of different transport calculations' )
+parser.add_argument('-rmin',     '--minimum_radius',              type=float,    default=8,         help='Minimum radius considered in nm')
+parser.add_argument('-rmax',     '--minimum_radius',              type=float,    default=8,         help='Maximum radius considered in nm')
+parser.add_argument('-Egmin',    '--minimum_gap',                 type=float,    default=20,        help='Minimum confinement gap considered in meV')
+parser.add_argument('-Egmax',    '--maximum_gap',                 type=float,    default=20,        help='Maximum confinement gap considered in meV')
+
+# Transport calculation
+parser.add_argument('-Emin',     '--minimum_fermi',               type=float,    default=-100,      help='Initial Fermi energy')
+parser.add_argument('-Emax',     '--maximum_fermi',               type=float,    default=100,       help='Final Fermi energy')
+
+
+args = parser.parse_args()
 
 
 start_time = time.time()
@@ -16,7 +53,6 @@ B_perp    = 0                                                        # Perpendic
 n_flux    = 0.0                                                      # Number of flux quanta threaded
 B_par     = 0  # n_flux * phi0 / (120 * 20 * 1e-9 * 1e-9)            # Parallel magnetic field in T
 l_cutoff  = 30                                                       # Cutoff number modes
-Adis      = 5                                                        # Disorder amplitude
 
 
 # Random potential landscape parameters
@@ -74,7 +110,7 @@ color_list = ['#FF7256', '#00BFFF', '#00C957', '#9A32CD', '#FFC125']
 fig1, ax1 = plt.subplots(figsize=(8, 6))
 for i in range(G.shape[0]):
     hex_color = ["#" + ''.join([random.choice('ABCDEF0123456789') for j in range(6)])]
-    ax1.plot(fermi, G[i, :], color=color_list[i], label='$r$ = {0:.0f} nm, $E_g=$ {0:.1f} meV'.format(radius[i], conf_gap[i]))
+    ax1.plot(fermi, G[i, :], color=color_list[i], label='$r$ = {} nm, $E_g=$ {0:.1f} meV'.format(radius[i], conf_gap[i]))
 ax1.set_xlim(min(fermi), max(fermi))
 ax1.set_ylim(0, 10)
 ax1.set_xlabel("$E_F$ [meV]")
