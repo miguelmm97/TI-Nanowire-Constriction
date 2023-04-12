@@ -1,9 +1,13 @@
+import sys
 import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
-from ..PackageFolder.TransportClass import transport
 import time
 
+
+from ..PackageFolder.TransportClass import transport
+print(sys.path)
+exit(0)
 start_time = time.time()
 #%% Parameters
 

@@ -33,6 +33,13 @@ def geom_nc(x, x1, x2, r1, r2, sigma=None):
     # x2, r2: Final narrow part
     return r1 + (r2 - r1) * step(x, x2, sigma) + ((r2 - r1) / (x2 - x1)) * (x - x1) * (step(x, x1, sigma) - step(x, x2, sigma))
 
+def geom_cons(x, x1, x2, x3, r1, r2, sigma):
+    # x1, r1: Initial lead
+    # x2, r2: Constriction
+    # x3: Start of the second cone
+    return geom_nc(x, x1, x2, r1, r2, sigma) + geom_nc(-x + x2 + x3, x1, x2, r1, r2, sigma) - r2
+
+
 # @njit(parallel=True, cache=True)
 def M_Ax(modes, dx, w, h, B_perp=0):
 
