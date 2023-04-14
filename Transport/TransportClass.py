@@ -39,7 +39,6 @@ def geom_cons(x, x1, x2, x3, r1, r2, sigma):
     # x3: Start of the second cone
     return geom_nc(x, x1, x2, r1, r2, sigma) + geom_nc(-x + x2 + x3, x1, x2, r1, r2, sigma) - r2
 
-
 # @njit(parallel=True, cache=True)
 def M_Ax(modes, dx, w, h, B_perp=0):
 
@@ -262,6 +261,46 @@ class transport:
         if h1 is None or h2 is None: self.geometry[self.n_regions]['h'] = None        # Height
         else: self.geometry[self.n_regions]['h'] = geom_nc(x, x0, xf, h1, h2, sigma)  # Height
         self.n_regions += 1                                                           # Add new region to the geometry
+
+    def build_geometry(self, r_vec, x_vec, V_vec, n_vec=None, sigma_vec=None):
+        """
+        Builds the geometry of the nanostructure from specifying the radius, length and potential distribution of the
+        different sections. Once this distribution has been given, it creates a nanocone for consecutive points x, x+1
+        differing in radius, and a nanowire if they have the same radius.
+
+        The idea is that the vectors r, x, and V give a discretisation of radii and potentials, so that they act as a
+        discretisation in which between every to points the potential is constant and the radius changes infinitesimally
+        With this we can build any geometry.
+
+        Furthermore, the Npoints vector allows us to perform the transport calculation by further discretising that region
+        when calculating the transfer matrix.
+
+        Params:
+        ------
+
+        r:         {np.array(floats)}   Discretisation of the radius of the nanostructure as a function o x
+        x:         {np.array(floats)}   Discretisation of x
+        V:         {np.array(floats)}   Discretisation of the potential as a function of x.
+        Npoints:   {np.array(floats)}   Number of points in the transport calculation for each individual region
+        sigma:     {np.array(floats)}   Smoothing factor for each individual region
+
+
+        Return:
+        -------
+        None, but updates self. geometry
+
+        """
+        if sigma_vec is None: sigma_vec = np.repeat(None, x_vec.shape[0])
+        if n_vec is None: n_vec = np.repeat(None, x_vec.shape[0])
+
+        for i, (r, x, V, n, sigma) in enumerate(zip(r_vec[:-1], x_vec[:-1], V_vec[:-1], n_vec[:-1], sigma_vec[:-1])):
+            if r != r_vec[i + 1]:
+                self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
+            else:
+                self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
+
+    def get_potential_matrix(self, V):
+        return V * np.eye(2 * self.l_cutoff + 1)
 
     def get_Landauer_conductance(self, E):
         """
