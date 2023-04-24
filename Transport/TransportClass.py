@@ -163,17 +163,49 @@ def transport_checks(transfer_matrix=None, scat_matrix=None, conservation='off',
         # print("Completeness of reflexion/transmission: n:modes - tr(r^\dagger r) - tr(t^\dagger t) =", n_modes-np.trace(r_dagger @ r)-np.trace(t_dagger @ t))
         if not np.allclose(n_modes-np.trace(r_dagger @ r), np.trace(t_dagger @ t)): raise AssertionError('Reflexion doesnt add up to transmission')
 
+def gaussian_correlated_potential(x_vec, strength, correlation_length, vf, Nq, check_convergence=False):
+    """
+    Generates a sample of a gaussian correlated potential V(x) with strength ,
+    a certain correlation length and Nq points in momentum space.
+
+    Params:
+    ------
+    x_vec:                 {np.array(float)}  Discretisation of the position grid (Equally spaced!!!!!!!!!!)
+    strength:                     {np.float}  Strength of the potential in units of (hbar vf /corr_length)^2
+    correlation_length:           {np.float}  Correlation length of the distribution in nm
+    vf:                           {np.float}  Fermi velocity in nm meV
+    Nq:                             {np.int}  Number of points to work in momentum space
+
+    Returns:
+    -------
+    Vgauss:                {np.array(float)}  Gaussian correlated potential sample
+    """
+
+    L = x_vec[-1] - x_vec[0]
+    if not isinstance(Nq, int): raise ValueError('Nq must be an integer!')
+    if (x_vec[1] - x_vec[0]) > L / 2 * pi * Nq: raise ValueError('dx must be smaller than L / 2 pi Nq for FT to work')
+
+    Vgauss = np.zeros(x_vec.shape)
+    n = np.arange(1, Nq)
+    std_qn = strength * (vf ** 2) * np.exp(-0.5 * (correlation_length * 2 * pi * n / L) ** 2)
+    phi_qn = np.random.uniform(0, 2 * pi, size=Nq-1)
+    Vqn = np.abs(np.random.normal(scale=std_qn))
+    for i, x in enumerate(x_vec):  Vgauss[i] = (2 / np.sqrt(L)) * np.dot(Vqn, np.cos(2 * pi * n * x/ L + phi_qn))
+
+    return Vgauss, Vqn, phi_qn if check_convergence else Vgauss
+
+
+
 @dataclass
 class transport:
 
     """ Transport calculations on 3dTI nanostructures based on their effective surface theory."""
-    vf: float                               # Fermi velocity in meV nm
-    B_perp: float                           # Magnetic field perpendicular to the axis of the nanostructure
-    B_par: float                            # Magnetic field parallel to the axis of the nanostructure
-    l_cutoff: int
-    geometry: dict = field(init=False)      # Dictionary codifying the geometry
-    scattering: dict = field(init=False)
-    n_regions: int = field(init=False)      # Number of different regions in the nanostructure
+    vf:        float                       # Fermi velocity in meV nm
+    B_perp:    float                       # Magnetic field perpendicular to the axis of the nanostructure
+    B_par:     float                       # Magnetic field parallel to the axis of the nanostructure
+    l_cutoff:  int                         # Cutoff in the number of angular momentum modes
+    geometry:  dict = field(init=False)    # Dictionary codifying the geometry
+    n_regions: int = field(init=False)     # Number of different regions in the nanostructure
 
     def __post_init__(self):
         self.geometry = {}
@@ -224,7 +256,7 @@ class transport:
         -------
         x0:         {float} Initial point of the nanocone
         xf:         {float} Final point of the nanocone
-        n_points:   {int}   Number of points discretising the cone
+        n_points:     {int} Number of points discretising the cone
         sigma:      {float} Smoothing factor for the step functions (the bigger, the sharper)
         r1:         {float} Initial radius of the nanocone
         w1:         {float} Initial width of the nanocone
@@ -298,9 +330,6 @@ class transport:
                 self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
             else:
                 self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
-
-    def get_potential_matrix(self, V):
-        return V * np.eye(2 * self.l_cutoff + 1)
 
     def get_Landauer_conductance(self, E):
         """
@@ -412,4 +441,14 @@ class transport:
         V = V[idx]
 
         return E, V
+
+    def get_potential_matrix(self, V):
+        return V * np.eye(2 * self.l_cutoff + 1)
+
+
+
+
+
+
+
 

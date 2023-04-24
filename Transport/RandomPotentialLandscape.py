@@ -3,7 +3,7 @@ import time
 import random
 import matplotlib.pyplot as plt
 from numpy import pi
-from ..PackageFolder.TransportClass import transport
+from TransportClass import transport
 
 
 start_time = time.time()

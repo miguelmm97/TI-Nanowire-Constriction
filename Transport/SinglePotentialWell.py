@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
-from ..PackageFolder.TransportClass import transport
+from TransportClass import transport
 import time
 
 start_time = time.time()
@@ -22,36 +22,38 @@ Adis      = 5                                                       # Disorder a
 
 model1 = transport(vf, B_perp, B_par, l_cutoff)                    # Instance of the transport class
 r1 = 8; conf_gap1 = vf / r1
-x01 = 0; x11 = 50; x21 = 3 * x11; x31 = x21 + x11
-V1 = 4 * conf_gap1
+x01 = 0; x11 = 20; x21 = x11 + 15; x31 = x21 + x11
+V1 = -26
 Vnm1 = V1 * np.eye(2 * l_cutoff + 1)
 model1.add_nw(x01, x11, r=r1)
+model1.add_nw(x11, x21, r=r1, Vnm=Vnm1)
+model1.add_nw(x21, x31, r=r1)
 
 
-model2 = transport(vf, B_perp, B_par, l_cutoff)                    # Instance of the transport class
-r2 = 8; conf_gap2 = vf / r2
-x02 = 0; x12 = 50; x22 = 3 * x12; x32 = x22 + x12
-V2 = 4 * conf_gap2
-Vnm2 = V2 * np.eye(2 * l_cutoff + 1)
-model2.add_nw(x02, x12, r=r2)
-
-model3 = transport(vf, B_perp, B_par, l_cutoff)                    # Instance of the transport class
-r3 = 50; conf_gap3 = vf / r3
-x03 = 0; x13 = 150; x23 = 6 * x13; x33 = x23 + x13
-V3 = 6 * conf_gap3
-Vnm3 = V3 * np.eye(2 * l_cutoff + 1)
-model3.add_nw(x03, x13, r=r3)
-model3.add_nw(x13, x23, r=r3, Vnm=-Vnm3)
-model3.add_nw(x23, x33, r=r3)
-
-model4 = transport(vf, B_perp, B_par, l_cutoff)                    # Instance of the transport class
-r4 = 50; conf_gap4 = vf / r4
-x04 = 0; x14 = 150; x24 = 6 * x14; x34 = x24 + x14
-V4 = 8 * conf_gap3
-Vnm4 = V4 * np.eye(2 * l_cutoff + 1)
-model4.add_nw(x04, x14, r=r4)
-model4.add_nw(x14, x24, r=r4, Vnm=-Vnm4)
-model4.add_nw(x24, x34, r=r4)
+# model2 = transport(vf, B_perp, B_par, l_cutoff)                    # Instance of the transport class
+# r2 = 8; conf_gap2 = vf / r2
+# x02 = 0; x12 = 50; x22 = 3 * x12; x32 = x22 + x12
+# V2 = 4 * conf_gap2
+# Vnm2 = V2 * np.eye(2 * l_cutoff + 1)
+# model2.add_nw(x02, x12, r=r2)
+#
+# model3 = transport(vf, B_perp, B_par, l_cutoff)                    # Instance of the transport class
+# r3 = 50; conf_gap3 = vf / r3
+# x03 = 0; x13 = 150; x23 = 6 * x13; x33 = x23 + x13
+# V3 = 6 * conf_gap3
+# Vnm3 = V3 * np.eye(2 * l_cutoff + 1)
+# model3.add_nw(x03, x13, r=r3)
+# model3.add_nw(x13, x23, r=r3, Vnm=-Vnm3)
+# model3.add_nw(x23, x33, r=r3)
+#
+# model4 = transport(vf, B_perp, B_par, l_cutoff)                    # Instance of the transport class
+# r4 = 50; conf_gap4 = vf / r4
+# x04 = 0; x14 = 150; x24 = 6 * x14; x34 = x24 + x14
+# V4 = 8 * conf_gap3
+# Vnm4 = V4 * np.eye(2 * l_cutoff + 1)
+# model4.add_nw(x04, x14, r=r4)
+# model4.add_nw(x14, x24, r=r4, Vnm=-Vnm4)
+# model4.add_nw(x24, x34, r=r4)
 
 
 # Bands
@@ -60,7 +62,7 @@ model4.add_nw(x24, x34, r=r4)
 
 #%% Conductance calculation
 # fermi     = np.linspace(-0.5 * conf_gap1, 0.5 * conf_gap1, 500)      # Fermi level
-fermi     = np.linspace(-conf_gap2 - 10, conf_gap2 + 10, 1000)
+fermi     = np.linspace(-100, 100, 1000)
 G1        = np.zeros(fermi.shape)                                    # Conductance preallocation
 G2        = np.zeros(fermi.shape)                                    # Conductance preallocation
 G3        = np.zeros(fermi.shape)                                    # Conductance preallocation
@@ -68,9 +70,9 @@ G4        = np.zeros(fermi.shape)                                    # Conductan
 for i, E in enumerate(fermi):
     start_iter = time.time()
     G1[i] = model1.get_Landauer_conductance(E)
-    G2[i] = model2.get_Landauer_conductance(E)
-    G3[i] = model3.get_Landauer_conductance(E)
-    G4[i] = model4.get_Landauer_conductance(E)
+    # G2[i] = model2.get_Landauer_conductance(E)
+    # G3[i] = model3.get_Landauer_conductance(E)
+    # G4[i] = model4.get_Landauer_conductance(E)
     print('iter: {}/{} | time: {:.3e} s | G: {:.2e}'.format(i, len(fermi), time.time() - start_iter, G1[i]))
 
 #%% Figures
