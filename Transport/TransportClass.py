@@ -163,9 +163,9 @@ def transport_checks(transfer_matrix=None, scat_matrix=None, conservation='off',
         # print("Completeness of reflexion/transmission: n:modes - tr(r^\dagger r) - tr(t^\dagger t) =", n_modes-np.trace(r_dagger @ r)-np.trace(t_dagger @ t))
         if not np.allclose(n_modes-np.trace(r_dagger @ r), np.trace(t_dagger @ t)): raise AssertionError('Reflexion doesnt add up to transmission')
 
-def gaussian_correlated_potential(x_vec, strength, correlation_length, vf, Nq, check_convergence=False):
+def gaussian_correlated_potential(x_vec, strength, correlation_length, vf, Nq):
     """
-    Generates a sample of a gaussian correlated potential V(x) with strength ,
+    Generates a sample of a gaussian correlated potential V(x) with strength,
     a certain correlation length and Nq points in momentum space.
 
     Params:
@@ -187,12 +187,12 @@ def gaussian_correlated_potential(x_vec, strength, correlation_length, vf, Nq, c
 
     Vgauss = np.zeros(x_vec.shape)
     n = np.arange(1, Nq)
-    std_qn = strength * (vf ** 2) * np.exp(-0.5 * (correlation_length * 2 * pi * n / L) ** 2)
+    std_qn = np.sqrt(strength * (vf ** 2 / correlation_length ** 2) * np.exp(-0.5 * (correlation_length * 2 * pi * n / L) ** 2))
     phi_qn = np.random.uniform(0, 2 * pi, size=Nq-1)
     Vqn = np.abs(np.random.normal(scale=std_qn))
-    for i, x in enumerate(x_vec):  Vgauss[i] = (2 / np.sqrt(L)) * np.dot(Vqn, np.cos(2 * pi * n * x/ L + phi_qn))
+    for i, x in enumerate(x_vec):  Vgauss[i] = (2 / np.sqrt(L)) * np.dot(Vqn, np.cos(2 * pi * n * x / L + phi_qn))
 
-    return Vgauss, Vqn, phi_qn if check_convergence else Vgauss
+    return Vgauss
 
 
 
