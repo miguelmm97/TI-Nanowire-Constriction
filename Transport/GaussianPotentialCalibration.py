@@ -8,11 +8,11 @@ start_time = time.time()
 #%% Parameters
 vf           = 330                                                      # Fermi velocity in meV nm
 corr_length  = 10                                                       # Correlation length in nm
-dis_strength = 1                                                        # Disorder strength in vf / xi scale
+dis_strength = 20                                                        # Disorder strength in vf / xi scale
 Nq           = 100                                                      # Number of points to take the FFT
 
 
-# Geberate gaussian correlated potential
+# Generate gaussian correlated potential
 ncheck = 200
 x = np.linspace(0, 500, 400)
 r = np.repeat(8, x.shape[0])
