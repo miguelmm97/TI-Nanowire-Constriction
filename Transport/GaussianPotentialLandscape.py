@@ -17,13 +17,13 @@ l_cutoff     = 30                                                       # Cutoff
 corr_length  = 10                                                       # Correlation length in nm
 dis_strength = np.array([1, 10, 20])                                    # Disorder strength in vf / xi scale
 Nq           = 100                                                      # Number of points to take the FFT
-N_samples    = 100                                                      # Number of samples to disorder average
+N_samples    = 50                                                       # Number of samples to disorder average
 fermi        = np.linspace(-100, 100, 200)
 G            = np.zeros((N_samples, fermi.shape[0], dis_strength.shape[0]))
 
 # Geometry parameters
 x = np.linspace(0, 500, 400)
-r = np.repeat(8, x.shape[0])
+r = np.repeat(24, x.shape[0])
 
 #%% Calculations
 
@@ -41,7 +41,7 @@ for i, K in enumerate(dis_strength):
             start_iter = time.time()
             G[n, j, i] = model_gauss.get_Landauer_conductance(E)
             print('iter disorder: {}/{} | iter sample: {}/{} | iter transport: {}/{} | iter time: {:.3e} s'.format
-                  (i, dis_strength.shape[0], n, N_samples, j, fermi.shape[0], time.time() - start_iter))
+                  (i, dis_strength.shape[0]-1, n, N_samples-1, j, fermi.shape[0]-1, time.time() - start_iter))
 
 
 G_avg1 = np.mean(G[:, :, 0], axis=0)
@@ -58,7 +58,7 @@ ax1.set_xlim(min(fermi), max(fermi))
 ax1.set_ylim(0, 10)
 ax1.set_xlabel("$E_F$ [meV]")
 ax1.set_ylabel("$G[2e^2/h]$")
-ax1.set_title(" Gaussian correlated: $\\xi=$ {} nm, $N_q=$ {}, $L=$ {} nm, $r=$ {} nm".format(corr_length, Nq, x[-1], r[0]))
+ax1.set_title(" Gaussian correlated: $\\xi=$ {} nm, $N_q=$ {}, $N_s=$ {}, $L=$ {} nm, $r=$ {} nm".format(corr_length, Nq, N_samples, x[-1], r[0]))
 ax1.legend(loc='upper right', ncol=1)
 plt.show()
 
