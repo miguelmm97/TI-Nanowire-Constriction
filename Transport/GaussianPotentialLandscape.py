@@ -1,8 +1,12 @@
 import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
-from TransportClass import transport, gaussian_correlated_potential
+from TransportClass import transport, gaussian_correlated_potential, get_fileID
 import time
+import h5py
+import os
+import sys
+from datetime import date
 
 start_time = time.time()
 #%% Parameters
@@ -15,50 +19,77 @@ n_flux       = 0.0                                                      # Number
 B_par        = 0  # n_flux * phi0 / (120 * 20 * 1e-9 * 1e-9)            # Parallel magnetic field in T
 l_cutoff     = 30                                                       # Cutoff number modes
 corr_length  = 10                                                       # Correlation length in nm
-dis_strength = np.array([1, 10, 20])                                    # Disorder strength in vf / xi scale
+dis_strength = 1                                                        # Disorder strength in vf / xi scale
+radius       = np.linspace(8, 30, 5)                                    # Radius of the nanowire
+x            = np.linspace(0, 500, 400)                                 # Discretised position
 Nq           = 100                                                      # Number of points to take the FFT
 N_samples    = 50                                                       # Number of samples to disorder average
-fermi        = np.linspace(-100, 100, 200)
-G            = np.zeros((N_samples, fermi.shape[0], dis_strength.shape[0]))
+fermi        = np.linspace(-100, 100, 500)                              # Fermi energy sample
+G            = np.zeros((N_samples, fermi.shape[0], radius.shape[0]))
+g_index      = ['N_samples', 'fermi', 'radius']
 
-# Geometry parameters
-x = np.linspace(0, 500, 400)
-r = np.repeat(24, x.shape[0])
 
 #%% Calculations
 
 # Transport calculation
-for i, K in enumerate(dis_strength):
+for i, rad in enumerate(radius):
+    r = np.repeat(rad, x.shape[0])
+
     for n in range(N_samples):
 
         # Instance of the transport class
         model_gauss = transport(vf, B_perp, B_par, l_cutoff)
-        V = gaussian_correlated_potential(x, K, corr_length, vf, Nq)
+        V = gaussian_correlated_potential(x, dis_strength, corr_length, vf, Nq)
         model_gauss.build_geometry(r, x, V)
 
         # Conductance calculation
         for j, E in enumerate(fermi):
             start_iter = time.time()
             G[n, j, i] = model_gauss.get_Landauer_conductance(E)
-            print('iter disorder: {}/{} | iter sample: {}/{} | iter transport: {}/{} | iter time: {:.3e} s'.format
-                  (i, dis_strength.shape[0]-1, n, N_samples-1, j, fermi.shape[0]-1, time.time() - start_iter))
+            print('iter radius: {}/{} | iter sample: {}/{} | iter transport: {}/{} | iter time: {:.3e} s'.format
+                  (i, radius.shape[0]-1, n, N_samples-1, j, fermi.shape[0]-1, time.time() - start_iter))
 
 
-G_avg1 = np.mean(G[:, :, 0], axis=0)
-G_avg2 = np.mean(G[:, :, 1], axis=0)
-G_avg3 = np.mean(G[:, :, 2], axis=0)
+G_avg = np.mean(G, axis=0)
+
 
 #%% Figures
-
+color_list = ['#FF7256', '#00BFFF', '#00C957', '#9A32CD', '#FFC125']
 fig, ax1 = plt.subplots(figsize=(8, 6))
-ax1.plot(fermi, G_avg1, color='#FF7256', label='$K_v=$ {}'.format(dis_strength[0]))
-ax1.plot(fermi, G_avg2, color='#00C957', label='$K_v=$ {}'.format(dis_strength[1]))
-ax1.plot(fermi, G_avg3, color='#00BFFF', label='$K_v=$ {}'.format(dis_strength[2]))
+for i in range(radius.shape[0]):
+    ax1.plot(fermi, G_avg[:, i], color=color_list[i], label='$r=$ {}'.format(radius[i]))
 ax1.set_xlim(min(fermi), max(fermi))
 ax1.set_ylim(0, 10)
 ax1.set_xlabel("$E_F$ [meV]")
 ax1.set_ylabel("$G[2e^2/h]$")
-ax1.set_title(" Gaussian correlated: $\\xi=$ {} nm, $N_q=$ {}, $N_s=$ {}, $L=$ {} nm, $r=$ {} nm".format(corr_length, Nq, N_samples, x[-1], r[0]))
+ax1.set_title(" Gaussian correlated: $\\xi=$ {} nm, $N_q=$ {}, $N_s=$ {}, $L=$ {} nm, $K_v=$ {} nm".format(corr_length, Nq, N_samples, x[-1], dis_strength))
 ax1.legend(loc='upper right', ncol=1)
 plt.show()
+
+#%% Data storage
+file_list = os.listdir('Data')
+expID = get_fileID(file_list)
+
+filename ='{}{}{}'.format('Experiment', expID, '.h5')
+filepath = os.path.join('Data', filename)
+with h5py.File(filepath, 'w') as f:
+    f.create_dataset("data", data=G)
+    f["data"].attrs.create("Date",                 data=str(date.today()))
+    f["data"].attrs.create("Codepath",             data=sys.argv[0])
+    f["data"].attrs.create("vf",                   data=vf)
+    f["data"].attrs.create("B_perp",               data=B_perp)
+    f["data"].attrs.create("n_flux",               data=n_flux)
+    f["data"].attrs.create("B_par",                data=B_par)
+    f["data"].attrs.create("l_cutoff",             data=l_cutoff)
+    f["data"].attrs.create("corr_length",          data=corr_length)
+    f["data"].attrs.create("dis_strength",         data=dis_strength)
+    f["data"].attrs.create("radius",               data=radius)
+    f["data"].attrs.create("x",                    data=x)
+    f["data"].attrs.create("Nq",                   data=Nq)
+    f["data"].attrs.create("N_samples",            data=N_samples)
+    f["data"].attrs.create("fermi",                data=fermi)
+    f["data"].attrs.create("fermi0",               data=fermi[0])
+    f["data"].attrs.create("fermi-1",              data=fermi[-1])
+    f["data"].attrs.create("fermi_resolution",     data=fermi.shape[0])
+    f["data"].attrs.create("Gshape",               data=g_index)
 

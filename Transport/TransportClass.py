@@ -194,7 +194,14 @@ def gaussian_correlated_potential(x_vec, strength, correlation_length, vf, Nq):
 
     return Vgauss
 
-
+def get_fileID(file_list):
+    expID = 0
+    for file in file_list:
+        if file.startswith('Experiment') and file.endswith('.h5'):
+            stringID = file.split('Experiment')[1].split('.h5')[0]
+            ID = int(stringID)
+            expID = max(ID, expID)
+    return expID + 1
 
 @dataclass
 class transport:
