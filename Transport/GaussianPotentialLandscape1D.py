@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
-from TransportClass import transport, gaussian_correlated_potential, get_fileID
+from TransportClass import transport, gaussian_correlated_potential_1D, get_fileID
 import time
 import h5py
 import os
@@ -19,16 +19,16 @@ n_flux       = 0.0                                                      # Number
 B_par        = 0  # n_flux * phi0 / (120 * 20 * 1e-9 * 1e-9)            # Parallel magnetic field in T
 l_cutoff     = 30                                                       # Cutoff number modes
 corr_length  = 10                                                       # Correlation length in nm
-dis_strength = 1                                                        # Disorder strength in vf / xi scale
-radius       = np.linspace(8, 30, 5)                                    # Radius of the nanowire
-x            = np.linspace(0, 500, 400)                                 # Discretised position
+dis_strength = 6                                                        # Disorder strength in vf / xi scale
+radius       = np.array([19])                                           # Radius of the nanowire
+x            = np.linspace(0, 500, 4)                                   # Discretised position
 Nq           = 100                                                      # Number of points to take the FFT
-N_samples    = 50                                                       # Number of samples to disorder average
-fermi        = np.linspace(-100, 100, 500)                              # Fermi energy sample
+N_samples    = 2                                                        # Number of samples to disorder average
+fermi        = np.linspace(-100, 100, 2)                                # Fermi energy sample
+g_index      = ['N_samples', 'fermi', 'radius']                         # Flag for saving G
+test_run    = True if fermi.shape[0] < 10 else False                    # Flag that points to test runs or real runs
 G            = np.zeros((N_samples, fermi.shape[0], radius.shape[0]))
-g_index      = ['N_samples', 'fermi', 'radius']
-
-
+Vstd_th = np.sqrt((dis_strength / (corr_length * np.sqrt(2 * pi))) * (vf / corr_length) ** 2)
 #%% Calculations
 
 # Transport calculation
@@ -39,7 +39,7 @@ for i, rad in enumerate(radius):
 
         # Instance of the transport class
         model_gauss = transport(vf, B_perp, B_par, l_cutoff)
-        V = gaussian_correlated_potential(x, dis_strength, corr_length, vf, Nq)
+        V = gaussian_correlated_potential_1D(x, dis_strength, corr_length, vf, Nq)[0]
         model_gauss.build_geometry(r, x, V)
 
         # Conductance calculation
@@ -53,23 +53,9 @@ for i, rad in enumerate(radius):
 G_avg = np.mean(G, axis=0)
 
 
-#%% Figures
-color_list = ['#FF7256', '#00BFFF', '#00C957', '#9A32CD', '#FFC125']
-fig, ax1 = plt.subplots(figsize=(8, 6))
-for i in range(radius.shape[0]):
-    ax1.plot(fermi, G_avg[:, i], color=color_list[i], label='$r=$ {}'.format(radius[i]))
-ax1.set_xlim(min(fermi), max(fermi))
-ax1.set_ylim(0, 10)
-ax1.set_xlabel("$E_F$ [meV]")
-ax1.set_ylabel("$G[2e^2/h]$")
-ax1.set_title(" Gaussian correlated: $\\xi=$ {} nm, $N_q=$ {}, $N_s=$ {}, $L=$ {} nm, $K_v=$ {} nm".format(corr_length, Nq, N_samples, x[-1], dis_strength))
-ax1.legend(loc='upper right', ncol=1)
-plt.show()
-
 #%% Data storage
 file_list = os.listdir('Data')
 expID = get_fileID(file_list)
-
 filename ='{}{}{}'.format('Experiment', expID, '.h5')
 filepath = os.path.join('Data', filename)
 with h5py.File(filepath, 'w') as f:
@@ -92,4 +78,22 @@ with h5py.File(filepath, 'w') as f:
     f["data"].attrs.create("fermi-1",              data=fermi[-1])
     f["data"].attrs.create("fermi_resolution",     data=fermi.shape[0])
     f["data"].attrs.create("Gshape",               data=g_index)
+    f["data"].attrs.create("Test_run",             data=test_run)
 
+
+#%% Figures
+color_list = ['#FF7256', '#00BFFF', '#00C957', '#9A32CD', '#FFC125']
+fig, ax1 = plt.subplots(figsize=(8, 6))
+for i in range(radius.shape[0]):
+    ax1.plot(fermi, G_avg[:, i], color=color_list[i], label='$r=$ {} nm'.format(radius[i]))
+ax1.plot(np.repeat(2 * Vstd_th, 10), np.linspace(0, 10, 10), '--', color='#A9A9A9', alpha=0.5)
+ax1.plot(np.repeat(-2 * Vstd_th, 10), np.linspace(0, 10, 10), '--', color='#A9A9A9', alpha=0.5)
+ax1.text(2 * Vstd_th - 10, 9, '$2\sigma$', fontsize=20, rotation='vertical', color='#A9A9A9', alpha=0.5)
+ax1.text(- 2 * Vstd_th + 3, 9, '$2\sigma$', fontsize=20, rotation='vertical', color='#A9A9A9', alpha=0.5)
+ax1.set_xlim(min(fermi), max(fermi))
+ax1.set_ylim(0, 10)
+ax1.set_xlabel("$E_F$ [meV]")
+ax1.set_ylabel("$G[2e^2/h]$")
+ax1.set_title(" Gaussian correlated: ExpID= {}, $\\xi=$ {} nm, $N_q=$ {}, $N_s=$ {}, $L=$ {} nm, $K_v=$ {}".format(expID, corr_length, Nq, N_samples, x[-1], dis_strength))
+ax1.legend(loc='upper right', ncol=1)
+plt.show()
