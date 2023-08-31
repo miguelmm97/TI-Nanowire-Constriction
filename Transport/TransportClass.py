@@ -23,6 +23,8 @@ sigma_z = np.array([[1, 0], [0, -1]], dtype=np.complex128)
 
 
 
+
+
 def step(x1, x2, sigma=None):
     # Smoothened step function theta(x1-x2)
     if sigma is None: return np.heaviside(x1 - x2, 1)
@@ -163,7 +165,7 @@ def transport_checks(transfer_matrix=None, scat_matrix=None, conservation='off',
         # print("Completeness of reflexion/transmission: n:modes - tr(r^\dagger r) - tr(t^\dagger t) =", n_modes-np.trace(r_dagger @ r)-np.trace(t_dagger @ t))
         if not np.allclose(n_modes-np.trace(r_dagger @ r), np.trace(t_dagger @ t)): raise AssertionError('Reflexion doesnt add up to transmission')
 
-def gaussian_correlated_potential_1D(x_vec, strength, correlation_length, vf, Nq, Vqn=None, phi_qn=None):
+def gaussian_correlated_potential_1D(x_vec, strength, correlation_length, vf, Nq, Vn=None, phi_n=None):
     """
     Generates a sample of a gaussian correlated potential V(x) with strength,
     a certain correlation length and Nq points in momentum space.
@@ -175,41 +177,44 @@ def gaussian_correlated_potential_1D(x_vec, strength, correlation_length, vf, Nq
     correlation_length:           {np.float}  Correlation length of the distribution in nm
     vf:                           {np.float}  Fermi velocity in nm meV
     Nq:                             {np.int}  Number of points to work in momentum space
-    Vqn:                   {np.array(float)}  Ready calculated distribution of momentum modes (length Nq)
-    phi_qn:                {np.array(float)}  Ready calculated distribution of random phases (length Nq)
+    Vn:                    {np.array(float)}  Ready calculated distribution of momentum modes (length Nq)
+    phi_n:                 {np.array(float)}  Ready calculated distribution of random phases (length Nq)
 
     Returns:
     -------
     Vgauss:                {np.array(float)}  Gaussian correlated potential sample
-    Vqn:                   {np.array(float)}  Distribution of momentum modes (length Nq)
-    phi_qn:                {np.array(float)}  Distribution of random phases (length Nq)
+    Vn:                    {np.array(float)}  Distribution of momentum modes (length Nq)
+    phi_n:                 {np.array(float)}  Distribution of random phases (length Nq)
     """
 
     # Checks and defs
-    L = x_vec[-1] - x_vec[0]
+    L = x_vec[-1] - x_vec[0]; dx = x_vec[1] - x_vec[0]
+    qmax = 2 * pi * Nq / L
     if not isinstance(Nq, int): raise ValueError('Nq must be an integer!')
-    if (x_vec[1] - x_vec[0]) < 0.5 * L / (2 * pi * Nq): raise ValueError('dx must be larger than L / 2 pi Nq for FT to work')
+    if dx < pi / qmax: raise ValueError('dx must be larger than pi/qmax for FT to work')
     Vgauss = np.zeros(x_vec.shape)
     n = np.arange(1, Nq + 1)
 
-    # Generate momentum potential
-    if Vqn is None and phi_qn is None:
-        std_qn = np.sqrt(strength * (vf ** 2 / correlation_length ** 2) * np.exp(-0.5 * (correlation_length * 2 * pi * n / L) ** 2))
-        phi_qn = np.random.uniform(0, 2 * pi, size=Nq)
-        Vqn = np.random.normal(scale=std_qn)
-    elif Vqn is not None and phi_qn is not None:
+    # Generate modes of the potential
+    if Vn is None and phi_n is None:
+        std_n = np.sqrt(strength * (vf ** 2 / correlation_length) * np.exp(-0.5 * (correlation_length * 2 * pi * n / L) ** 2))
+        # print('Check:')
+        # print(f'{std_n}')
+        phi_n = np.random.uniform(0, 2 * pi, size=Nq)
+        Vn = np.random.normal(scale=std_n)
+    elif Vn is not None and phi_n is not None:
         pass
     else:
         raise ValueError('Vqn and phi_qn must both be determined or undetermined at the same time')
 
     # Translate to real space
-    for i, x in enumerate(x_vec):  Vgauss[i] = (2 / np.sqrt(L)) * np.dot(Vqn, np.cos(2 * pi * n * x / L + phi_qn))
-    return Vgauss, Vqn, phi_qn
+    for i, x in enumerate(x_vec):  Vgauss[i] = (2 / np.sqrt(L)) * np.dot(Vn, np.cos(2 * pi * n * x / L + phi_n))
+    return Vgauss, Vn, phi_n
 
-def gaussian_correlated_potential_2D(x_vec, theta_vec, r, strength, correlation_length, vf, Nq, Ntheta):
+def gaussian_correlated_potential_2D(x_vec, theta_vec, r, strength, correlation_length, vf, Nq, Ntheta, Vnm=None, phi_nm=None):
     """
     Generates a sample of a gaussian correlated potential V(x, theta) with strength,
-    a certain correlation length and Nq points in momentum space.
+    a certain correlation length and Nq, Ntheta points in momentum space.
 
     Params:
     ------
@@ -221,32 +226,40 @@ def gaussian_correlated_potential_2D(x_vec, theta_vec, r, strength, correlation_
     vf:                           {np.float}  Fermi velocity in nm meV
     Nq:                             {np.int}  Number of points in momentum space x
     Ntheta:                         {np.int}  Number of points in momentum space theta
+    Vnm:                   {np.array(float)}  Ready calculated distribution of momentum modes (length Nq, Ntheta)
+    phi_nm:                {np.array(float)}  Ready calculated distribution of random phases (length Nq, Ntheta)
 
     Returns:
     -------
-    Vgauss:                {np.array(float)}  Gaussian correlated potential sample of shape(x_vec, theta_vec)
+    Vgauss:                 {np.array(float)}  Gaussian correlated potential sample of shape(x_vec, theta_vec)
+    Vnm:                    {np.array(float)}  Distribution of momentum modes (length Nq)
+    phi_nm:                 {np.array(float)}  Distribution of random phases (length Nq)
     """
 
+    # Checks and defs
     L = x_vec[-1] - x_vec[0]
-    Vgauss = np.zeros((x_vec.shape[0], theta_vec.shape[0]))
+    dx = x_vec[1] - x_vec[0]; dtheta = theta_vec[1] - theta_vec[0]
+    qmax = 2 * pi * Nq / L; lmax = Ntheta / r
     if not isinstance(Nq, int): raise ValueError('Nq must be an integer!')
     if not isinstance(Ntheta, int): raise ValueError('Ntheta must be an integer!')
-    if (x_vec[1] - x_vec[0]) > L / 2 * pi * Nq: raise ValueError('dx must be smaller than L / 2 pi Nq for FT to work')
-    if (theta_vec[1] - theta_vec[0]) > r / Ntheta: raise ValueError('dtheta must be smaller than r / Ntheta for FT to work')
-
-    # Momentum space
+    if dx < pi / qmax: raise ValueError('dx must be larger than pi / qmax for FT to work')
+    if dtheta < pi / (r * lmax): raise ValueError('dtheta must be larger than pi / (r * lmax) for FT to work')
+    Vgauss = np.zeros((x_vec.shape[0], theta_vec.shape[0]))
     N = np.tile(np.arange(1, Nq), Ntheta - 1).reshape((Nq - 1, Ntheta - 1))
     M = np.repeat(np.arange(1, Ntheta), Nq - 1).reshape((Nq - 1, Ntheta - 1))
 
-    # Standard deviation
-    scale_std = np.sqrt(strength) * (vf / correlation_length)
-    func_std = np.exp(-0.25 * (correlation_length ** 2) * ((2 * pi * N / L) ** 2 + (M / r) ** 2))
+    # Generate modes of the potential
+    if Vnm is None and phi_nm is None:
+        scale_std = np.sqrt(strength) * (vf / correlation_length)
+        func_std = np.exp(-0.25 * (correlation_length ** 2) * ((2 * pi * N / L) ** 2 + (M / r) ** 2))
+        phi_nm = np.random.uniform(0, 2 * pi, size=(Nq - 1, Ntheta - 1))
+        Vnm = np.random.normal(scale=scale_std * func_std)
+    elif Vnm is not None and phi_nm is not None:
+        pass
+    else:
+        raise ValueError('Vnm and phi_nm must both be determined or undetermined at the same time')
 
-    # Random generation of momentum modes
-    phi_nm = np.random.uniform(0, 2 * pi, size=(Nq - 1, Ntheta - 1))
-    Vnm = np.abs(np.random.normal(scale=scale_std * func_std))
-
-    # Fourier transform
+    # Transforming to real space
     for i, x in enumerate(x_vec):
         for j, theta in enumerate(theta_vec):
             print(i, j)

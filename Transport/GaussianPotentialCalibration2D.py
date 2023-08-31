@@ -9,16 +9,20 @@ start_time = time.time()
 vf           = 330                                    # Fermi velocity in meV nm
 corr_length  = 10                                     # Correlation length in nm
 dis_strength = 6                                      # Disorder strength in vf / xi scale
-Nq           = 100                                    # Number of points to take the xFFT
-Ntheta       = 100                                    # Number of points to take the thetaFFT
+Nq           = 250                                    # Number of points to take the xFFT
+Ntheta       = 10                                     # Number of points to take the thetaFFT
+L            = 1000                                   # Length of the wire
+rad          = 8                                      # Radius of the wire
+Nx           = 250                                    # Number of points in the x grid
 ncheck       = 3                                      # Number of samples of the potential
-x            = np.linspace(0, 52, 100)                # x vector sampled by the pontential
-theta        = np.linspace(0, 2 * pi, 100)            # theta vector sampled by the potential
-r            = np.repeat(8, theta.shape[0])           # r vector sampled by the potential
 
 
 # Generate gaussian correlated potential
+x = np.linspace(0, L, Nx)
+theta = np.linspace(0, 2 * pi, Ntheta)
+r = np.repeat(rad, theta.shape[0])
 V = np.zeros((ncheck, x.shape[0], theta.shape[0]))
+print('dx = {}, 1/q = {}, 1/l = {}'.format(x[1] - x[0], pi * (x[-1] - x[0]) / (2 * pi * Nq), pi / Ntheta))
 for i in range(ncheck):
     print(i)
     V[i, :, :] = gaussian_correlated_potential_2D(x, theta, r[0], dis_strength, corr_length, vf, Nq, Ntheta)
@@ -26,6 +30,7 @@ for i in range(ncheck):
 
 # Different energy scales
 Vstd_th = np.sqrt(dis_strength / 2 * pi) * vf / corr_length ** 2
+Vstd_th1d = Vstd_th
 Vstd_num = np.std(V, axis=0)[0, 0]
 V_avg = np.mean(V, axis=0)
 
@@ -71,7 +76,7 @@ ax1.text(450, -1.5 * Vstd_th, '$1\sigma$', fontsize=20)
 ax1.text(450, -2.5 * Vstd_th, '$2\sigma$', fontsize=20)
 ax1.text(450, -3.5 * Vstd_th, '$3\sigma$', fontsize=20)
 ax1.set_xlim(x[0], x[-1])
-ax1.set_ylim(-4 * Vstd_th, 4 * Vstd_th)
+ax1.set_ylim(-4 * Vstd_th1d, 4 * Vstd_th1d)
 ax1.set_xlabel("$L$ [nm]")
 ax1.set_ylabel("$V$ [meV]")
 ax1.set_title(" Gaussian correlated potential samples along $x$ and random fixed $\\theta$ with \n $\\xi=$ {} nm, $K_V=$ {}, "
@@ -96,7 +101,7 @@ ax2.text(450, -1.5 * Vstd_th, '$1\sigma$', fontsize=20)
 ax2.text(450, -2.5 * Vstd_th, '$2\sigma$', fontsize=20)
 ax2.text(450, -3.5 * Vstd_th, '$3\sigma$', fontsize=20)
 ax2.set_xlim(r[0] * theta[0], r[0] * theta[-1])
-ax2.set_ylim(-4 * Vstd_th, 4 * Vstd_th)
+ax2.set_ylim(-4 * Vstd_th1d, 4 * Vstd_th1d)
 ax2.set_xlabel("$r\\theta$ [nm]")
 ax2.set_ylabel("$V$ [meV]")
 ax2.set_title(" Gaussian correlated potential samples along $\\theta$ and random fixed $x$ with \n $\\xi=$ {} nm, $K_V=$ {}, "
