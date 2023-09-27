@@ -12,23 +12,23 @@ start_time = time.time()
 #%% Parameters
 
 # Constants and set up of the model
-phi0         = 2 * pi * 1e-34 / 1.6e-19                                 # Quantum of flux
-vf           = 330                                                      # Fermi velocity in meV nm
-B_perp       = 0                                                        # Perpendicular magnetic field in T
-n_flux       = 0.0                                                      # Number of flux quanta threaded
-B_par        = 0  # n_flux * phi0 / (120 * 20 * 1e-9 * 1e-9)            # Parallel magnetic field in T
-l_cutoff     = 30                                                       # Cutoff number modes
-corr_length  = 10                                                       # Correlation length in nm
-dis_strength = 6                                                        # Disorder strength in vf / xi scale
-radius       = np.array([19])                                           # Radius of the nanowire
-x            = np.linspace(0, 500, 4)                                   # Discretised position
-Nq           = 100                                                      # Number of points to take the FFT
-N_samples    = 2                                                        # Number of samples to disorder average
-fermi        = np.linspace(-100, 100, 2)                                # Fermi energy sample
-g_index      = ['N_samples', 'fermi', 'radius']                         # Flag for saving G
-test_run    = True if fermi.shape[0] < 10 else False                    # Flag that points to test runs or real runs
+phi0         = 2 * pi * 1e-34 / 1.6e-19                                     # Quantum of flux
+vf           = 330                                                          # Fermi velocity in meV nm
+B_perp       = 0                                                            # Perpendicular magnetic field in T
+n_flux       = 0.0                                                          # Number of flux quanta threaded
+B_par        = 0                                                            # Parallel magnetic field in T
+l_cutoff     = 30                                                           # Cutoff number modes
+corr_length  = 10                                                           # Correlation length in nm
+dis_strength = 6                                                            # Disorder strength in vf / xi scale
+radius       = np.array([20, 25, 30])                                       # Radius of the nanowire
+x            = np.linspace(0, 500, 500)                                     # Discretised position
+Nq           = 500                                                          # Number of points to take the FFT
+N_samples    = 1                                                            # Number of samples to disorder average
+fermi        = np.linspace(-100, 100, 200)                                  # Fermi energy sample
+g_index      = ['N_samples', 'fermi', 'radius']                             # Flag for saving G
+test_run     = True if fermi.shape[0] < 10 else False                       # Flag that points to test runs or real runs
 G            = np.zeros((N_samples, fermi.shape[0], radius.shape[0]))
-Vstd_th = np.sqrt((dis_strength / (corr_length * np.sqrt(2 * pi))) * (vf / corr_length) ** 2)
+Vstd_th      = np.sqrt(dis_strength / np.sqrt(2 * pi)) * (vf / corr_length)
 #%% Calculations
 
 # Transport calculation

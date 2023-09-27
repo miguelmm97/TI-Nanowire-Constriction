@@ -1,28 +1,27 @@
 import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
-from TransportClass import gaussian_correlated_potential_1D, gaussian_correlated_potential_1D_FFT
+from scipy.optimize import curve_fit
+from TransportClass import gaussian_correlated_potential_1D_FFT
 import time
 
 start_time = time.time()
 #%% Parameters
-vf           = 330               # Fermi velocity in meV nm
-corr_length  = 10                # Correlation length in nm
-dis_strength = 6                 # Disorder strength in vf / xi scale
-Nq           = 500               # Number of points to take the FFT
-L            = 500               # Length of the wire
-rad          = 20                # Radius of the wire
-Nx           = 500               # Number of points in the x grid
-ncheck       = 200              # Samples of the potential
+vf           = 330              # Fermi velocity in meV nm
+corr_length  = 150              # Correlation length in nm
+dis_strength = 6                # Disorder strength in vf / xi scale
+L            = 1000             # Length of the wire
+rad          = 20               # Radius of the wire
+Nx           = 501              # Number of points in the x grid
+ncheck       = 20000            # Samples of the potential
 
 # Generate gaussian correlated potential
 x = np.linspace(0, L, Nx)
 r = np.repeat(rad, x.shape[0])
 V = np.zeros((ncheck, x.shape[0]))
-print('dx = {}, pi/q_max= {}'.format(x[1] - x[0], 2 * pi * (x[-1] - x[0]) / (2 * pi * Nq)))
 for i in range(ncheck):
     print('Sample {}/{}'.format(i, ncheck - 1))
-    V[i, :] = gaussian_correlated_potential_1D_FFT(x, dis_strength, corr_length, vf, Nq)[0]
+    V[i, :] = gaussian_correlated_potential_1D_FFT(L, Nx, dis_strength, corr_length, vf)
 
 # Correlations
 average_full = np.mean(V)
@@ -37,49 +36,17 @@ Variance = np.mean(Variance, axis=0)
 Vstd_th = np.sqrt(dis_strength / np.sqrt(2 * pi)) * (vf / corr_length)
 Vstd_num = np.std(V, axis=0)[0]
 
-
 # Fidelity of the sample
-n_fit = int(np.floor(3 * corr_length / (L / Nx)))
-fit = np.polyfit(x[: n_fit], np.log(Variance[: n_fit]), 2)
-scale_fit = np.exp(fit[2])
-xi_fit = np.sqrt(- (1 / fit[0]) / 2)
-error1 = Vstd_th ** 2 - Variance[0]
-error2 = np.abs(Variance[-1])
-
-
-# Quality of the fit depending on the system size
-# L_vec =np.linspace(100, 1000, 20); dx = 2.5; ncheck2 = 200
-# num_error = np.zeros(L_vec.shape)
-# for i, l in enumerate(L_vec):
-#     print('Length {}/{}'.format(i, L_vec.shape[0]))
-#     Nx = int(np.floor(l / dx))
-#     Nq = int(np.floor(l / (2 * dx))) + 1
-#
-#     # Generate potential
-#     x2 = np.linspace(0, l, Nx)
-#     V2 = np.zeros((ncheck2, x2.shape[0]))
-#     for j in range(ncheck2):
-#         V2[j, :] = gaussian_correlated_potential_1D(x2, dis_strength, corr_length, vf, Nq)[0]
-#
-#     # Correlations
-#     Variance_aux2 = np.zeros(V2.shape)
-#     for n in range(ncheck2):
-#         for m in range(x2.shape[0]):
-#             aux = V2[n, :] * np.roll(V2[n, :], -m)
-#             if m == 0: Variance_aux2[n, m] = np.mean(aux)
-#             else: Variance_aux2[n, m] = np.mean(aux[0: -m])
-#     Variance2 = np.mean(Variance_aux2, axis=0)
-#
-#     # Difference from the theoretical value
-#     num_error[i] = (Vstd_th ** 2) - Variance2[0]
-
-
+def funcfit(y, C1, C2): return C1 * np.exp(0.5 * (-y ** 2)/ (C2 ** 2))
+fit, covariance1 = curve_fit(funcfit, x[: -int(Nx / 2) - 1], Variance)
+xi_fit1 = np.sqrt((dis_strength / fit[0]) * (vf ** 2) / np.sqrt(2 * pi))
+xi_fit2 = fit[1]
 
 #%% Figures
 
 # Distribution of correlated potentials
 fig1, ax1 = plt.subplots(figsize=(8, 6))
-for i in range(ncheck): ax1.plot(x, V[i, :], color='#00BFFF', alpha=0.1)
+# for i in range(ncheck): ax1.plot(x, V[i, :], color='#00BFFF', alpha=0.1)
 ax1.plot(x, V[np.random.randint(0, high=V.shape[0]), :], color='#1E90FF', linewidth=3)
 ax1.plot(x, Vstd_th * np.ones(x.shape), '--k')
 ax1.plot(x, -Vstd_th * np.ones(x.shape), '--k')
@@ -97,7 +64,7 @@ ax1.set_xlim(x[0], x[-1])
 ax1.set_ylim(-4 * Vstd_th, 4 * Vstd_th)
 ax1.set_xlabel("$L$ [nm]")
 ax1.set_ylabel("$V$ [meV]")
-ax1.set_title(" Gaussian correlated potential samples with $\\xi=$ {} nm, $K_V=$ {} and $N_q=$ {}".format(corr_length, dis_strength, Nq))
+ax1.set_title(" Gaussian correlated potential samples with $\\xi=$ {} nm, $K_V=$ {} and $N_x=$ {}".format(corr_length, dis_strength, Nx))
 plt.plot()
 plt.show()
 
@@ -142,17 +109,18 @@ plt.show()
 # Spacial correlations
 Variance_th = (Vstd_th ** 2) * np.exp(-0.5 * x[: -int(Nx / 2)] ** 2 / corr_length ** 2)
 fig4, ax4 = plt.subplots(figsize=(8, 6))
-ax4.plot(x[: -int(Nx / 2)]**2, Variance, '.r')
+ax4.plot(x[: -int(Nx / 2)-1]**2, Variance, '.r')
 ax4.plot(x[: -int(Nx / 2)]**2, Variance_th, '-b')
-ax4.plot(x[: -int(Nx / 2)]**2, (Vstd_th ** 2) * np.ones(int(Nx/2)), '--')
+ax4.plot(x[: -int(Nx / 2) - 1]**2, (Vstd_th ** 2) * np.ones(int(Nx/2)), '--')
 ax4.set_ylabel("$\langle V(x) V(x') \\rangle$ ")
 ax4.set_xlabel("$x²$")
 ax4.set_yscale('log')
 ax4.set_ylim(1, 3000)
 ax4.set_xlim(0, 2000)
-ax4.set_title("$\langle V(x) V(x') \\rangle$  with $\\xi=$ {} nm, $K_V=$ {} and $N_q=$ {}".format(corr_length, dis_strength, Nq))
-ax4.text(50, 1000, f'$\\xi_{{fit}} / \\xi_{{th}} = {xi_fit / corr_length:.2f}$')
-ax4.text(50, 100, f'$Scale_{{fit}} / Scale_{{th}} = {scale_fit / Vstd_th ** 2:.2f}$')
+ax4.set_title("$\langle V(x) V(x') \\rangle$  with $\\xi=$ {} nm, $K_V=$ {} and $N_q=$ {}".format(corr_length, dis_strength, Nx))
+ax4.text(1500, 1000, f'$\\xi_{{fit1}} / \\xi_{{th}} = {xi_fit1 / corr_length:.2f}$')
+ax4.text(1500, 500, f'$\\xi_{{fit2}} / \\xi_{{th}} = {xi_fit2 / corr_length:.2f}$')
+ax4.text(1500, 100, f'$Scale_{{fit}} / Scale_{{th}} = {fit[0] / Vstd_th ** 2:.2f}$')
 
 # Numerical error with system size
 # fig5, ax5 = plt.subplots(figsize=(8, 6))

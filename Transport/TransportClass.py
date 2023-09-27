@@ -3,6 +3,7 @@ from numpy import pi
 from numpy.linalg import inv
 from scipy.linalg import expm
 import numpy as np
+from numpy.fft import ifftshift, ifft, fftshift, ifft2
 import numba as nb
 from numba import njit  # "nopython just in time (compiler)"
 
@@ -191,27 +192,27 @@ def gaussian_correlated_potential_1D(x_vec, strength, correlation_length, vf, Nq
     L = x_vec[-1] - x_vec[0]; dx = x_vec[1] - x_vec[0]
     qmax = 2 * pi * Nq / L
     if not isinstance(Nq, int): raise ValueError('Nq must be an integer!')
-    if dx < pi / qmax: raise ValueError('dx must be larger than pi/qmax for FT to work')
+    if dx < 2 * pi / qmax: raise ValueError('dx must be larger than pi/qmax for FT to work')
     Vgauss = np.zeros(x_vec.shape)
     n = np.arange(1, Nq + 1)
 
     # Generate modes of the potential
     if Vn is None and phi_n is None:
         std_n = np.sqrt(strength * (vf ** 2 / correlation_length) * np.exp(-0.5 * (correlation_length * 2 * pi * n / L) ** 2))
-        # print('Check:')
-        # print(f'{std_n}')
-        phi_n = np.random.uniform(0, 2 * pi, size=Nq)
+        phi_n =np.random.uniform(0, 2 * pi, size=Nq)
         Vn = np.random.normal(scale=std_n)
+        V0 = np.random.normal(scale=np.sqrt(strength * (vf ** 2 / correlation_length)))
     elif Vn is not None and phi_n is not None:
         pass
     else:
         raise ValueError('Vqn and phi_qn must both be determined or undetermined at the same time')
 
+
     # Translate to real space
-    for i, x in enumerate(x_vec):  Vgauss[i] = (2 / np.sqrt(L)) * np.dot(Vn, np.cos(2 * pi * n * x / L + phi_n))
+    for i, x in enumerate(x_vec):  Vgauss[i] = V0 / np.sqrt(L) + (2 / np.sqrt(L)) * np.dot(Vn, np.cos(2 * pi * n * x / L + phi_n))
     return Vgauss, Vn, phi_n
 
-def gaussian_correlated_potential_2D(x_vec, theta_vec, r, strength, correlation_length, vf, Nq, Ntheta, Vnm=None, phi_nm=None):
+def gaussian_correlated_potential_2D(x_vec, theta_vec, r, strength, correlation_length, vf, Nq, Nl, Vnm=None, phi_nm=None):
     """
     Generates a sample of a gaussian correlated potential V(x, theta) with strength,
     a certain correlation length and Nq, Ntheta points in momentum space.
@@ -239,33 +240,146 @@ def gaussian_correlated_potential_2D(x_vec, theta_vec, r, strength, correlation_
     # Checks and defs
     L = x_vec[-1] - x_vec[0]
     dx = x_vec[1] - x_vec[0]; dtheta = theta_vec[1] - theta_vec[0]
-    qmax = 2 * pi * Nq / L; lmax = Ntheta / r
-    if not isinstance(Nq, int): raise ValueError('Nq must be an integer!')
-    if not isinstance(Ntheta, int): raise ValueError('Ntheta must be an integer!')
-    if dx < pi / qmax: raise ValueError('dx must be larger than pi / qmax for FT to work')
-    if dtheta < pi / (r * lmax): raise ValueError('dtheta must be larger than pi / (r * lmax) for FT to work')
-    Vgauss = np.zeros((x_vec.shape[0], theta_vec.shape[0]))
-    N = np.tile(np.arange(1, Nq), Ntheta - 1).reshape((Nq - 1, Ntheta - 1))
-    M = np.repeat(np.arange(1, Ntheta), Nq - 1).reshape((Nq - 1, Ntheta - 1))
+    qmax = 2 * pi * Nq / L; lmax = Nl / r
+    if not isinstance(Nq, int): raise TypeError('Nq must be an integer!')
+    if not isinstance(Nl, int): raise TypeError('Ntheta must be an integer!')
+    if dx < 2 * pi / qmax: raise ValueError('dx must be larger than pi / qmax for FT to work')
+    if dtheta < 2 * pi / (r * lmax): raise ValueError('dtheta must be larger than pi / (r * lmax) for FT to work')
+    # N = np.tile(np.arange(0, Nq, dtype=float), Nl).reshape((Nq, Nl))
+    # M = np.repeat(np.arange(0, Nl, dtype=float), Nq).reshape((Nq, Nl))
+    N = np.tile(np.arange(-Nq, Nq, dtype=float), 2 * Nl).reshape((2 * Nq, 2 * Nl))
+    M = np.repeat(np.arange(-Nl, Nl, dtype=float), 2 * Nq).reshape((2 * Nq, 2 * Nl))
+
 
     # Generate modes of the potential
     if Vnm is None and phi_nm is None:
-        scale_std = np.sqrt(strength) * (vf / correlation_length)
-        func_std = np.exp(-0.25 * (correlation_length ** 2) * ((2 * pi * N / L) ** 2 + (M / r) ** 2))
-        phi_nm = np.random.uniform(0, 2 * pi, size=(Nq - 1, Ntheta - 1))
-        Vnm = np.random.normal(scale=scale_std * func_std)
+        scale_std = np.sqrt(strength) * vf
+        func_std = np.exp(-0.25 * (correlation_length ** 2) * ((2. * pi * N / L) ** 2 + (M / r) ** 2))
+        # phi_nm = np.random.uniform(0., 2 * pi, size=(Nq, Ntheta))
+        # Vnm = np.random.normal(scale=scale_std * func_std)
+        phi_aux = np.random.uniform(0., 2 * pi, size=(2 * Nq - 1, Nl - 1))
+        # phi2_aux
+        # V =
     elif Vnm is not None and phi_nm is not None:
         pass
     else:
         raise ValueError('Vnm and phi_nm must both be determined or undetermined at the same time')
 
     # Transforming to real space
+    Vgauss = np.zeros((x_vec.shape[0], theta_vec.shape[0]))
     for i, x in enumerate(x_vec):
         for j, theta in enumerate(theta_vec):
-            print(i, j)
-            Vgauss[i, j] = (2 / np.sqrt(L * 2 * pi * r)) * np.sum(Vnm * np.cos(2 * pi * N * x / L + M * theta + phi_nm))
+            # Vgauss[i, j]  = (4 / np.sqrt(L * 2 * pi * r)) * np.sum(Vnm[1:, 1:] * np.cos(2 * pi * N[1:, 1:] * x / L) * np.cos(M[1:, 1:] * theta + phi_nm[1:, 1:]))
+            # Vgauss[i, j] += (2 / np.sqrt(L * 2 * pi * r)) * np.dot(Vnm[1:, 0], np.cos(M[1:, 0] * theta + phi_nm[1:, 0]))
+            # Vgauss[i, j] += (2 / np.sqrt(L * 2 * pi * r)) * np.dot(Vnm[0, 1:], np.cos(2 * pi * N[0, 1:] * x / L + phi_nm[0, 1:]))
+            # Vgauss[i, j] += (1 / np.sqrt(L * 2 * pi * r)) * Vnm[0, 0]
+            Vgauss[i, j] = (1. / np.sqrt(L * 2. * pi * r)) * np.sum()
 
     return Vgauss
+
+def gaussian_correlated_potential_1D_FFT(L, Nx, strength, xi, vf):
+    """
+    Generates a sample of a gaussian correlated potential V(x) with strength,
+    a certain correlation length and Nx points in momentum space. It uses the
+    FFT algorithm from numpy.
+
+    Params:
+    ------
+    L:                            {np.float}  Physical length of the system
+    Nx:                             {np.int}  NUmber of Fourier modes (it must be odd)
+    strength:                     {np.float}  Strength of the potential in units of (hbar vf /corr_length)^2
+    xi:           {np.float}  Correlation length of the distribution in nm
+    vf:                           {np.float}  Fermi velocity in nm meV
+
+    Returns:
+    -------
+    Vgauss:                {np.array(float)}  Gaussian correlated potential sample
+    """
+
+    if Nx % 2 == 0: raise ValueError('Nx must be odd')
+
+    # Definitions for the transform
+    dx = L / Nx
+    fmax = 2 * pi / dx; df = 2 * pi / L
+    f = np.linspace(0, fmax / 2, num=int(Nx / 2) + 1, endpoint=False)
+
+    # Correlations and fourier modes
+    scale = strength * (vf ** 2) / xi
+    Vn = np.abs(np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi * f) ** 2)))
+    V = np.concatenate((Vn, Vn[1:][::-1]))
+    phi = np.random.uniform(0, 2 * pi, size=int((Nx - 1) / 2))
+    phases = np.concatenate(([0], phi, -phi[::-1]))
+    FT_V = V * np.exp(1j * phases)
+
+    # Convert the product of the two functions back to real space
+    Vgauss = np.sqrt(2 * pi) * ifft(FT_V)/ dx / np.sqrt(df)
+
+    return Vgauss
+
+def gaussian_correlated_potential_2D_FFT(L, r, Nx, Ny, strength, xi, vf):
+    """
+    Generates a sample of a gaussian correlated potential V(x) with strength,
+    a certain correlation length and Nx points in momentum space. It uses the
+    FFT algorithm from numpy.
+
+    Params:
+    ------
+    L:                            {np.float}  Physical length of the system
+    r:                            {np.float}  Radius of the wire
+    Nx:                             {np.int}  Number of Fourier modes (it must be odd)
+    Ntheta:                         {np.int}  Number of Fourier modes (it must be odd)
+    strength:                     {np.float}  Strength of the potential in units of (hbar vf /corr_length)^2
+    correlation_length:           {np.float}  Correlation length of the distribution in nm
+    vf:                           {np.float}  Fermi velocity in nm meV
+
+    Returns:
+    -------
+    Vgauss:                {np.array(float)}  Gaussian correlated potential sample
+    """
+
+    if (Nx % 2 == 0) or (Ny % 2 == 0): raise ValueError('Nx and Ny must be odd')
+
+    # Definitions for the transform
+    dx = L / Nx; dy = 2 * pi * r / Ny
+    nx = int(Nx / 2); ny = int(Ny / 2)
+    fmax_x = 2 * pi / dx; df_x = 2 * pi / L
+    fmax_y = 2 * pi / dy; df_y = 1 / r
+    fx = np.linspace(0, fmax_x / 2, num=nx + 1, endpoint=False)
+    fy = np.linspace(0, fmax_y / 2, num=ny + 1, endpoint=False)
+    FX, FY = np.meshgrid(fx, fy)
+
+    # Correlations and fourier modes
+    scale = strength * (vf ** 2)
+    V = np.zeros((Ny, Nx))
+    V_x0 = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[0, 1:] ** 2 + FY[0, 1:] ** 2)))
+    V_0y = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 0] ** 2 + FY[1:, 0] ** 2)))
+    V[0, 1:] = np.concatenate((V_x0, V_x0[::-1]))
+    V[1:, 0] = np.concatenate((V_0y, V_0y[::-1]))
+    V[0, 0] = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[0, 0] ** 2 + FY[0, 0] ** 2)))
+    V[1: ny + 1, 1: nx + 1] = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 1:] ** 2 + FY[1:, 1:] ** 2)))
+    V[ny + 1:, 1: nx + 1] = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 1:][::-1, :] ** 2 + FY[1:, 1:][::-1, :] ** 2)))
+    V[1: ny + 1, nx + 1:] = V[ny + 1:, 1: nx + 1][::-1, ::-1]
+    V[ny + 1:, nx + 1:] = V[1: ny + 1, 1: nx + 1][::-1, ::-1]
+
+    phases = np.zeros((Ny, Nx))
+    phi_x0 = np.random.uniform(0, 2 * pi, size=int(Nx / 2))
+    phi_0y = np.random.uniform(0, 2 * pi, size=int(Ny / 2))
+    phases[0, 0] = 0
+    phases[1: ny + 1, 1: nx + 1] = np.random.uniform(0, 2 * pi, size=(ny, nx))
+    phases[ny + 1:, 1: nx + 1] = np.random.uniform(0, 2 * pi, size=(ny, nx))
+    phases[1: ny + 1, nx + 1:] = - phases[ny + 1:, 1: nx + 1][::-1, ::-1]
+    phases[ny + 1:, nx + 1:] = - phases[1: ny + 1, 1: nx + 1][::-1, ::-1]
+    phases[0, 1:] = np.concatenate((phi_x0, -phi_x0[::-1]))
+    phases[1:, 0] = np.concatenate((phi_0y, -phi_0y[::-1]))
+    FT_V = np.abs(V) * np.exp(1j * phases)
+
+    # Convert the product of the two functions back to real space
+    Vgauss = (2 * np.pi) * ifft2(FT_V) / (dx * dy) / (np.sqrt(df_x) * np.sqrt(df_y))
+
+    return Vgauss
+
+
+
 
 def get_fileID(file_list):
     expID = 0
@@ -275,6 +389,9 @@ def get_fileID(file_list):
             ID = int(stringID)
             expID = max(ID, expID)
     return expID + 1
+
+
+
 
 @dataclass
 class transport:
