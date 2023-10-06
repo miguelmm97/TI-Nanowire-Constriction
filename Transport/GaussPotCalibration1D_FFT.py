@@ -7,13 +7,13 @@ import time
 
 start_time = time.time()
 #%% Parameters
-vf           = 330              # Fermi velocity in meV nm
-corr_length  = 150              # Correlation length in nm
-dis_strength = 6                # Disorder strength in vf / xi scale
-L            = 1000             # Length of the wire
-rad          = 20               # Radius of the wire
-Nx           = 501              # Number of points in the x grid
-ncheck       = 20000            # Samples of the potential
+vf           = 330             # Fermi velocity in meV nm
+corr_length  = 10              # Correlation length in nm
+dis_strength = 6               # Disorder strength in vf / xi scale
+L            = 500             # Length of the wire
+rad          = 20              # Radius of the wire
+Nx           = 501             # Number of points in the x grid
+ncheck       = 2000            # Samples of the potential
 
 # Generate gaussian correlated potential
 x = np.linspace(0, L, Nx)
@@ -46,7 +46,7 @@ xi_fit2 = fit[1]
 
 # Distribution of correlated potentials
 fig1, ax1 = plt.subplots(figsize=(8, 6))
-# for i in range(ncheck): ax1.plot(x, V[i, :], color='#00BFFF', alpha=0.1)
+for i in range(ncheck): ax1.plot(x, V[i, :], color='#00BFFF', alpha=0.1)
 ax1.plot(x, V[np.random.randint(0, high=V.shape[0]), :], color='#1E90FF', linewidth=3)
 ax1.plot(x, Vstd_th * np.ones(x.shape), '--k')
 ax1.plot(x, -Vstd_th * np.ones(x.shape), '--k')

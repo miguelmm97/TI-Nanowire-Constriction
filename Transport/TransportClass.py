@@ -312,7 +312,7 @@ def gaussian_correlated_potential_1D_FFT(L, Nx, strength, xi, vf):
     FT_V = V * np.exp(1j * phases)
 
     # Convert the product of the two functions back to real space
-    Vgauss = np.sqrt(2 * pi) * ifft(FT_V)/ dx / np.sqrt(df)
+    Vgauss = np.sqrt(2 * pi) * ifft(FT_V) / dx / np.sqrt(df)
 
     return Vgauss
 
@@ -375,11 +375,10 @@ def gaussian_correlated_potential_2D_FFT(L, r, Nx, Ny, strength, xi, vf):
 
     # Convert the product of the two functions back to real space
     Vgauss = (2 * np.pi) * ifft2(FT_V) / (dx * dy) / (np.sqrt(df_x) * np.sqrt(df_y))
+    V_iFFTx = np.sqrt(2 * np.pi) * ifft(FT_V, axis=1) / (dx) / np.sqrt(df_x)
 
-    return Vgauss
-
-
-
+    # return V_iFFTx * (2 * pi * np.sqrt(r) / Ny), Vgauss
+    return V_iFFTx * (1 / np.sqrt(2 * pi * r)), Vgauss
 
 def get_fileID(file_list):
     expID = 0
@@ -498,11 +497,16 @@ class transport:
         differing in radius, and a nanowire if they have the same radius.
 
         The idea is that the vectors r, x, and V give a discretisation of radii and potentials, so that they act as a
-        discretisation in which between every to points the potential is constant and the radius changes infinitesimally
+        discretisation in which between every two points the potential is constant and the radius changes infinitesimally
         With this we can build any geometry.
 
         Furthermore, the Npoints vector allows us to perform the transport calculation by further discretising that region
         when calculating the transfer matrix.
+
+        OBS!: The potential V can be both rotationally symmetric or non-rotationally symmetric. In the former case we
+        just have to include a discretised vector, each entry corresponding to V(x). In the latter, for each x entry we
+        have to include a vector along the radial direction. The entries of this vector are the FFT of V(theta, x), for
+        fixed x. We do it in this way because then we need to do the FT of V(theta) to get Vnm in the transfer matrix.
 
         Params:
         ------
@@ -510,8 +514,8 @@ class transport:
         r:         {np.array(floats)}   Discretisation of the radius of the nanostructure as a function o x
         x:         {np.array(floats)}   Discretisation of x
         V:         {np.array(floats)}   Discretisation of the potential as a function of x.
-        Npoints:   {np.array(floats)}   Number of points in the transport calculation for each individual region
-        sigma:     {np.array(floats)}   Smoothing factor for each individual region
+        n_vec:     {np.array(floats)}   Number of points in the transport calculation for each individual region
+        sigma_vec: {np.array(floats)}   Smoothing factor for each individual region
 
 
         Return:
@@ -522,11 +526,19 @@ class transport:
         if sigma_vec is None: sigma_vec = np.repeat(None, x_vec.shape[0])
         if n_vec is None: n_vec = np.repeat(None, x_vec.shape[0])
 
-        for i, (r, x, V, n, sigma) in enumerate(zip(r_vec[:-1], x_vec[:-1], V_vec[:-1], n_vec[:-1], sigma_vec[:-1])):
-            if r != r_vec[i + 1]:
-                self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
-            else:
-                self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
+        if len(V_vec.shape) == 1:
+            for i, (r, x, V, n, sigma) in enumerate(zip(r_vec[:-1], x_vec[:-1], V_vec[:-1], n_vec[:-1], sigma_vec[:-1])):
+                if r != r_vec[i + 1]:
+                    self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
+                else:
+                    self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
+
+        elif len(V_vec.shape) == 2:
+            for i, (r, x, V, n, sigma) in enumerate(zip(r_vec[:-1], x_vec[:-1], V_vec[:, :-1].T, n_vec[:-1], sigma_vec[:-1])):
+                if r != r_vec[i + 1]:
+                    self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
+                else:
+                    self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
 
     def get_Landauer_conductance(self, E):
         """
@@ -640,9 +652,41 @@ class transport:
         return E, V
 
     def get_potential_matrix(self, V):
-        return V * np.eye(2 * self.l_cutoff + 1)
+        """
+        Computes the potential matrix used in the transfer matrix approach (part M_EV in the transfer matrix).
+
+        If V is a number (rotational symmetry) the potential matrix becomes trivial. If V is a vector, it assumes the
+        different entries are the FFT of V(theta, x) for fixed x.
+
+        Params:
+        ------
+        V:         {np.array(floats)}   Potential at the point x (either number or vector with angular components.)
+
+        Return:
+        -------
+        Vnm:       {np.array(floats)}   Potential matrix that is used in the transfer matrix approach.
+
+        """
 
 
+        try:
+            return V * np.eye(2 * self.l_cutoff + 1)
+        except ValueError:
+            Vnm = np.zeros((self.modes.shape[0], self.modes.shape[0]), dtype='complex128')
+            for i in range(self.modes.shape[0]):
+                if i == 0: Vnm += np.diag(np.repeat(V[0], self.modes.shape[0]), 0)
+                else:
+                    Vnm += np.diag(np.repeat(V[-i], self.modes.shape[0] - i), - i)
+                    Vnm += np.diag(np.repeat(V[i], self.modes.shape[0] - i), i)
+
+            return Vnm
+
+        # V_try = np.zeros((self.modes.shape[0], self.modes.shape[0]), dtype='complex128')
+        # theta = np.linspace(0, 2 * pi, V.shape[0])
+        # dtheta = theta[1] - theta[0]
+        # for i, n in enumerate(self.modes):
+        #     for j, m in enumerate(self.modes):
+        #         V_try[i, j] = (1/np.sqrt(2*pi)) * dtheta * np.dot(np.exp(-1j * (n - m) * theta), V)
 
 
 

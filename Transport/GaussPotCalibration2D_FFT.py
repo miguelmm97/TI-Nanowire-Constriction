@@ -8,13 +8,13 @@ import time
 start_time = time.time()
 #%% Parameters
 vf           = 330.              # Fermi velocity in meV nm
-corr_length  = 30                # Correlation length in nm
+corr_length  = 10                # Correlation length in nm
 dis_strength = 6.                # Disorder strength in vf / xi scale
-L            = 1000.             # Length of the wire
+L            = 500.             # Length of the wire
 rad          = 20.               # Radius of the wire
 Nx           = 501               # Number of points in the x grid
 Ntheta       = 301               # Number of points in the x grid
-ncheck       = 2000             # Number of samples of the potential
+ncheck       = 200             # Number of samples of the potential
 
 #%% Sample potential landscape
 # Generate gaussian correlated potential
