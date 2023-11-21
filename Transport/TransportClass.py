@@ -540,7 +540,51 @@ class transport:
                 else:
                     self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
 
-    def get_Landauer_conductance(self, E):
+    def get_scattering_transfer(self, E, initial_region=0, final_region=n_regions, backwards=False, save=False):
+
+
+        increment = -1 if backwards else 1
+        for i in range(initial_region, final_region, increment):
+
+            # For nanowires
+            if self.geometry[i]['type'] == 'nw':
+                M = M_EV(self.modes, self.geometry[i]['dx'], 0, E, self.vf, self.geometry[i]['V'])
+                M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'], 0, self.geometry[i]['w'], self.geometry[i]['h'], B_par=self.B_par)
+                M += M_Ax(self.modes, self.geometry[i]['dx'], self.geometry[i]['w'], self.geometry[i]['h'], B_perp=self.B_perp)
+                if backwards: M = - M
+
+                # No need for discretisation
+                if self.geometry[i]['n_points'] is None:
+                    T = expm(M * (self.geometry[i]['xf'] - self.geometry[i]['x0']) / self.geometry[i]['dx'])
+                    S = transfer_to_scattering(T) if i == 0 else scat_product(S, transfer_to_scattering(T))
+                    if np.isnan(S).any(): raise OverflowError('Length too long to calculate the scattering matrix directly. Need for discretisation!')
+
+                # Need for discretisation
+                else:
+                    dT = expm(M)
+                    dS = transfer_to_scattering(dT)
+                    for j in range(self.geometry[i]['n_points']):
+                        S = dS if (i == 0 and j == 0) else scat_product(S, dS)
+
+            # For variable radius geometries
+            else:
+                for j in range(self.geometry[i]['n_points'] - 1):
+                    dr = self.geometry[i]['r'][j + 1] - self.geometry[i]['r'][j]
+                    try:
+                        w = self.geometry[i]['w'][j]; h = self.geometry[i]['h'][j];
+                    except TypeError:
+                        w = None; h = None
+                    M = M_EV(self.modes, self.geometry[i]['dx'], dr, E, self.vf, self.geometry[i]['V'])
+                    M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'][j], dr, w=w, h=h, B_par=self.B_par)
+                    M += M_Ax(self.modes, self.geometry[i]['dx'], w, h, B_perp=self.B_perp)
+                    dT = expm(-M) if backwards else expm(M)
+                    dS = transfer_to_scattering(dT)
+                    S = dS if (i == 0 and j == 0) else scat_product(dS, S)
+
+        if save: self.S_tot, self.T_tot = S, T
+        return S, T
+
+    def get_Landauer_conductance(self, E, save=False):
         """
         Calculates the Landauer conductance along the whole geometry at the Fermi energy E.
 
@@ -553,38 +597,33 @@ class transport:
         G: {float} Conductance at the Fermi energy
         """
 
-        for i in range(0, self.n_regions):
-            if self.geometry[i]['type'] == 'nw':
-                M = M_EV(self.modes, self.geometry[i]['dx'], 0, E, self.vf, self.geometry[i]['V'])
-                M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'], 0, self.geometry[i]['w'], self.geometry[i]['h'], B_par=self.B_par)
-                M += M_Ax(self.modes, self.geometry[i]['dx'], self.geometry[i]['w'], self.geometry[i]['h'], B_perp=self.B_perp)
-
-                if self.geometry[i]['n_points'] is None:
-                    T = expm(M * (self.geometry[i]['xf'] - self.geometry[i]['x0']) / self.geometry[i]['dx'])
-                    S = transfer_to_scattering(T) if i == 0 else scat_product(S, transfer_to_scattering(T))
-                    if np.isnan(S).any(): raise OverflowError('Length to long to calculate the scattering matrix directly. Need for discretisation!')
-                else:
-                    dT = expm(M)
-                    dS = transfer_to_scattering(dT)
-                    for j in range(self.geometry[i]['n_points']):
-                        S = dS if (i == 0 and j == 0) else scat_product(S, dS)
-            else:
-                for j in range(self.geometry[i]['n_points'] - 1):
-                    dr = self.geometry[i]['r'][j + 1] - self.geometry[i]['r'][j]
-                    try:
-                        w = self.geometry[i]['w'][j]; h = self.geometry[i]['h'][j];
-                    except TypeError:
-                        w = None; h = None
-                    M = M_EV(self.modes, self.geometry[i]['dx'], dr, E, self.vf, self.geometry[i]['V'])
-                    M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'][j], dr, w=w, h=h, B_par=self.B_par)
-                    M += M_Ax(self.modes, self.geometry[i]['dx'], w, h, B_perp=self.B_perp)
-                    dT = expm(M)
-                    dS = transfer_to_scattering(dT)
-                    S = dS if (i == 0 and j == 0) else scat_product(dS, S)
-
+        S = self.get_scattering_transfer(E, save=save)[0]
         t = S[self.Nmodes:, 0: self.Nmodes]
         G = np.trace(t.T.conj() @ t)
         return G
+
+    def get_scattering_states(self, E, theta_vec):
+
+        if self.S_tot is None or self.T_tot is None: raise AssertionError('Need to save global S and T!')
+        psi_scatt = np.zeros(self.n_regions, len(theta_vec))
+
+        # Incoming modes
+        T_x = np.ones((2 * self.Nmodes, 2 * self.Nmodes))
+        phi_0 = np.ones((2 * self.Nmodes, ))
+        r = self.S_tot[0: self.Nmodes, 0: self.Nmodes]
+        phi_0[self.Nmodes:] = r @ phi_0[: self.Nmodes]
+
+
+        for i in range(self.n_regions, 0, -1):
+            T_x = self.get_scattering_transfer(E, initial_region=i, final_region=i - 1, backwards=True) @ T_x
+            phi_x = T_x @ np.kron(sigma_x, np.eye(self.Nmodes)) @ self.T_tot @ phi_0
+
+            theta = np.repeat(theta_vec, 2 * self.Nmodes).reshape(2 * self.Nmodes, len(theta_vec))
+            Mmodes = np.tile(self.modes, len(theta_vec)).reshape(len(theta_vec), 2 * self.Nmodes)
+            psi_scatt[i, :] = np.exp(1j * Mmodes * theta * self.geometry[i]['r']) @ phi_x
+
+        return psi_scatt
+
 
     def get_bands_nw(self, region, k_range):
         """
@@ -681,15 +720,43 @@ class transport:
 
             return Vnm
 
-        # V_try = np.zeros((self.modes.shape[0], self.modes.shape[0]), dtype='complex128')
-        # theta = np.linspace(0, 2 * pi, V.shape[0])
-        # dtheta = theta[1] - theta[0]
-        # for i, n in enumerate(self.modes):
-        #     for j, m in enumerate(self.modes):
-        #         V_try[i, j] = (1/np.sqrt(2*pi)) * dtheta * np.dot(np.exp(-1j * (n - m) * theta), V)
 
 
 
 
 
 
+
+
+
+   #     for i in range(0, self.n_regions):
+   #         if self.geometry[i]['type'] == 'nw':
+   #             M = M_EV(self.modes, self.geometry[i]['dx'], 0, E, self.vf, self.geometry[i]['V'])
+   #             M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'], 0, self.geometry[i]['w'], self.geometry[i]['h'], B_par=self.B_par)
+   #             M += M_Ax(self.modes, self.geometry[i]['dx'], self.geometry[i]['w'], self.geometry[i]['h'], B_perp=self.B_perp)
+#
+   #             if self.geometry[i]['n_points'] is None:
+   #                 T = expm(M * (self.geometry[i]['xf'] - self.geometry[i]['x0']) / self.geometry[i]['dx'])
+   #                 S = transfer_to_scattering(T) if i == 0 else scat_product(S, transfer_to_scattering(T))
+   #                 if np.isnan(S).any(): raise OverflowError('Length to long to calculate the scattering matrix directly. Need for discretisation!')
+   #                 if save_ST: self.S = S; self.T = T
+#
+#
+   #             else:
+   #                 dT = expm(M)
+   #                 dS = transfer_to_scattering(dT)
+   #                 for j in range(self.geometry[i]['n_points']):
+   #                     S = dS if (i == 0 and j == 0) else scat_product(S, dS)
+   #         else:
+   #             for j in range(self.geometry[i]['n_points'] - 1):
+   #                 dr = self.geometry[i]['r'][j + 1] - self.geometry[i]['r'][j]
+   #                 try:
+   #                     w = self.geometry[i]['w'][j]; h = self.geometry[i]['h'][j];
+   #                 except TypeError:
+   #                     w = None; h = None
+   #                 M = M_EV(self.modes, self.geometry[i]['dx'], dr, E, self.vf, self.geometry[i]['V'])
+   #                 M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'][j], dr, w=w, h=h, B_par=self.B_par)
+   #                 M += M_Ax(self.modes, self.geometry[i]['dx'], w, h, B_perp=self.B_perp)
+   #                 dT = expm(M)
+   #                 dS = transfer_to_scattering(dT)
+   #                 S = dS if (i == 0 and j == 0) else scat_product(dS, S)
