@@ -43,7 +43,7 @@ def geom_cons(x, x1, x2, x3, r1, r2, sigma):
     return geom_nc(x, x1, x2, r1, r2, sigma) + geom_nc(-x + x2 + x3, x1, x2, r1, r2, sigma) - r2
 
 # @njit(parallel=True, cache=True)
-def M_Ax(modes, dx, w, h, B_perp=0):
+def M_Ax(modes, dx, w, h, B_perp=0.):
 
     if w is None or h is None: return 0
 
@@ -66,7 +66,7 @@ def M_Ax(modes, dx, w, h, B_perp=0):
         return np.kron(sigma_0, M) * dx
 
 # @njit(parallel=True, cache=True)
-def M_theta(modes, dx, R, dR, w=None, h=None, B_par=0):
+def M_theta(modes, dx, R, dR, w=None, h=None, B_par=0.):
 
     C = 0.5 * (nm ** 2) * e * B_par / hbar
     A_theta = C * R ** 2 if (w is None or h is None) else C * (w * h / pi)  # A_theta = eBa²/2hbar
@@ -400,14 +400,16 @@ class transport:
     B_perp:    float                       # Magnetic field perpendicular to the axis of the nanostructure
     B_par:     float                       # Magnetic field parallel to the axis of the nanostructure
     l_cutoff:  int                         # Cutoff in the number of angular momentum modes
-    geometry:  dict = field(init=False)    # Dictionary codifying the geometry
-    n_regions: int = field(init=False)     # Number of different regions in the nanostructure
+    # geometry:  dict = field(init=False)    # Dictionary codifying the geometry
+    # n_regions: int = field(init=False)     # Number of different regions in the nanostructure
 
     def __post_init__(self):
         self.geometry = {}
         self.n_regions = 0
         self.modes = np.arange(-self.l_cutoff, self.l_cutoff+1)
         self.Nmodes = len(self.modes)
+        self.S_tot = None
+        self.T_tot = None
 
     def add_nw(self, x0, xf, Vnm=None, n_points=None, r=None, w=None, h=None):
         """
@@ -430,19 +432,18 @@ class transport:
         if self.n_regions != 0 and x0 != self.geometry[self.n_regions - 1]['xf']: raise ValueError('Regions dont match')
         if r is None and (w is None or h is None): raise ValueError('Need to specify r or (w, h)')
 
-        self.geometry[self.n_regions] = {}                                     # Add new region to the geometry
-        self.geometry[self.n_regions]['type'] = 'nw'                           # Type of region
-        self.geometry[self.n_regions]['x0'] = x0                               # Initial point
-        self.geometry[self.n_regions]['xf'] = xf                               # Final point
-        if n_points is None: self.geometry[self.n_regions]['dx'] = 100         # X increment
-        else: self.geometry[self.n_regions]['dx'] = abs(xf - x0) / n_points    # X increment
-        self.geometry[self.n_regions]['n_points'] = n_points                   # Number of points in the discretisation
-        self.geometry[self.n_regions]['V'] = Vnm                               # External potential
-
-        self.geometry[self.n_regions]['r'] = (w + h) / pi if r is None else r  # Radius
-        self.geometry[self.n_regions]['w'] = w                                 # Width
-        self.geometry[self.n_regions]['h'] = h                                 # Height
-        self.n_regions += 1                                                    # Add new region to the geometry
+        self.geometry[self.n_regions] = {
+            'type': 'nw',
+            'x0': x0,
+            'xf': xf,
+            'dx': 100 if n_points is None else abs(xf - x0) / n_points,
+            'n_points': n_points,
+            'V': Vnm,
+            'r': (w + h) / pi if r is None else r,
+            'w': w,
+            'h': h
+        }
+        self.n_regions += 1
 
     def add_nc(self, x0, xf, n_points, Vnm=None, sigma=None, r1=None, r2=None, w1=None, w2=None, h1=None, h2=None):
         """
@@ -471,24 +472,22 @@ class transport:
         if r1 is None and (w1 is None or h1 is None): raise ValueError('Need to specify r or (w, h)')
         if r2 is None and (w2 is None or h2 is None): raise ValueError('Need to specify r or (w, h)')
 
-        self.geometry[self.n_regions] = {}                                            # Add new region to the geometry
-        self.geometry[self.n_regions]['type'] = 'nc'                                  # Type of region
-        self.geometry[self.n_regions]['x0'] = x0                                      # Initial point
-        self.geometry[self.n_regions]['xf'] = xf                                      # Final point
-        self.geometry[self.n_regions]['dx'] = abs(xf - x0)/n_points                   # X increment
-        self.geometry[self.n_regions]['n_points'] = n_points                          # Number of points in the discretisation
-        self.geometry[self.n_regions]['V'] = Vnm                                      # External potential
+        r1 = (w1 + h1) / pi if r1 is None else r1
+        r2 = (w2 + h2) / pi if r2 is None else r2
+        x = np.linspace(x0, xf, n_points)
 
-        r1 = (w1 + h1) / pi if r1 is None else r1                                     # Initial radius
-        r2 = (w2 + h2) / pi if r2 is None else r2                                     # Final radius
-        x = np.linspace(x0, xf, n_points)                                             # Discretised region
-
-        self.geometry[self.n_regions]['r'] = geom_nc(x, x0, xf, r1, r2, sigma)        # Radius
-        if w1 is None or w2 is None: self.geometry[self.n_regions]['w'] = None        # Width
-        else: self.geometry[self.n_regions]['w'] = geom_nc(x, x0, xf, w1, w2, sigma)  # Width
-        if h1 is None or h2 is None: self.geometry[self.n_regions]['h'] = None        # Height
-        else: self.geometry[self.n_regions]['h'] = geom_nc(x, x0, xf, h1, h2, sigma)  # Height
-        self.n_regions += 1                                                           # Add new region to the geometry
+        self.geometry[self.n_regions] = {
+            'type': 'nw',
+            'x0': x0,
+            'xf': xf,
+            'dx': abs(xf - x0) / n_points,
+            'n_points': n_points,
+            'V': Vnm,
+            'r': geom_nc(x, x0, xf, r1, r2, sigma),
+            'w': None if w1 is None or w2 is None else geom_nc(x, x0, xf, w1, w2, sigma),
+            'h': None if h1 is None or h2 is None else geom_nc(x, x0, xf, h1, h2, sigma)
+        }
+        self.n_regions += 1
 
     def build_geometry(self, r_vec, x_vec, V_vec, n_vec=None, sigma_vec=None):
         """
@@ -523,6 +522,7 @@ class transport:
         None, but updates self. geometry
 
         """
+
         if sigma_vec is None: sigma_vec = np.repeat(None, x_vec.shape[0])
         if n_vec is None: n_vec = np.repeat(None, x_vec.shape[0])
 
@@ -540,8 +540,47 @@ class transport:
                 else:
                     self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
 
-    def get_scattering_transfer(self, E, initial_region=0, final_region=n_regions, backwards=False, save=False):
+    def get_scattering_transfer(self, E, region_type, x0, xf, dx, n_points, V, r, w, h, S=None, T=None, backwards=False):
 
+        # For nanowires
+        if region_type == 'nw':
+            M = M_EV(self.modes, dx, 0, E, self.vf, V) + M_theta(self.modes, dx, r, 0, w, h, B_par=self.B_par) +\
+                M_Ax(self.modes, dx, w, h, B_perp=self.B_perp)
+            if backwards: M = - M
+
+            # No need for discretisation
+            if n_points is None:
+                T = expm(M * (xf - x0) / dx)
+                S = transfer_to_scattering(T) if S is None else scat_product(S, transfer_to_scattering(T))
+                if np.isnan(S).any(): raise OverflowError('Length too long to calculate the scattering matrix directly. Need for discretisation!')
+
+            # Need for discretisation
+            else:
+                dT = expm(M)
+                T = expm(M * (xf - x0) / dx)
+                dS = transfer_to_scattering(dT)
+                for j in range(n_points): S = dS if (S is None and j == 0) else scat_product(S, dS)
+
+        # For variable radius geometries
+        else:
+            for j in range(n_points - 1):
+
+                dr = r[j + 1] - r[j]
+                try: w = w[j], h = h[j]
+                except TypeError: w = None; h = None
+
+                M = M_EV(self.modes, dx, dr, E, self.vf, V) + M_theta(self.modes, dx, r[j], dr, w=w, h=h, B_par=self.B_par) +\
+                    M_Ax(self.modes, dx, w, h, B_perp=self.B_perp)
+                dT = expm(-M) if backwards else expm(M)
+                T = dT if (T is None and j == 0) else T = dT @ T
+                dS = transfer_to_scattering(dT)
+                S = dS if (S is None and j == 0) else scat_product(dS, S)
+
+        return S, T
+
+    def get_scattering_transfer2(self, E, initial_region=0, final_region=None, backwards=False, save=False):
+
+        if final_region is None: final_region = self.n_regions
 
         increment = -1 if backwards else 1
         for i in range(initial_region, final_region, increment):
@@ -597,7 +636,11 @@ class transport:
         G: {float} Conductance at the Fermi energy
         """
 
-        S = self.get_scattering_transfer(E, save=save)[0]
+        S, T = None, None
+        for i in range(0, self.n_regions):
+            S = self.get_scattering_transfer(E, **self.geometry[i], S=S, T=T)
+        if save: self.S_tot = S, self.T_tot = T
+
         t = S[self.Nmodes:, 0: self.Nmodes]
         G = np.trace(t.T.conj() @ t)
         return G
@@ -608,12 +651,11 @@ class transport:
         psi_scatt = np.zeros(self.n_regions, len(theta_vec))
 
         # Incoming modes
-        T_x = np.ones((2 * self.Nmodes, 2 * self.Nmodes))
         phi_0 = np.ones((2 * self.Nmodes, ))
-        r = self.S_tot[0: self.Nmodes, 0: self.Nmodes]
-        phi_0[self.Nmodes:] = r @ phi_0[: self.Nmodes]
+        phi_0[self.Nmodes:] = self.S_tot[0: self.Nmodes, 0: self.Nmodes] @ phi_0[: self.Nmodes]
 
-
+        # Transfer to position x
+        T_x = np.ones((2 * self.Nmodes, 2 * self.Nmodes))
         for i in range(self.n_regions, 0, -1):
             T_x = self.get_scattering_transfer(E, initial_region=i, final_region=i - 1, backwards=True) @ T_x
             phi_x = T_x @ np.kron(sigma_x, np.eye(self.Nmodes)) @ self.T_tot @ phi_0
@@ -623,7 +665,6 @@ class transport:
             psi_scatt[i, :] = np.exp(1j * Mmodes * theta * self.geometry[i]['r']) @ phi_x
 
         return psi_scatt
-
 
     def get_bands_nw(self, region, k_range):
         """
@@ -760,3 +801,47 @@ class transport:
    #                 dT = expm(M)
    #                 dS = transfer_to_scattering(dT)
    #                 S = dS if (i == 0 and j == 0) else scat_product(dS, S)
+
+
+
+
+
+
+
+        # self.geometry[self.n_regions] = {}                                     # Add new region to the geometry
+        # self.geometry[self.n_regions]['type'] = 'nw'                           # Type of region
+        # self.geometry[self.n_regions]['x0'] = x0                               # Initial point
+        # self.geometry[self.n_regions]['xf'] = xf                               # Final point
+        # if n_points is None: self.geometry[self.n_regions]['dx'] = 100         # X increment
+        # else: self.geometry[self.n_regions]['dx'] = abs(xf - x0) / n_points    # X increment
+        # self.geometry[self.n_regions]['n_points'] = n_points                   # Number of points in the discretisation
+        # self.geometry[self.n_regions]['V'] = Vnm                               # External potential
+        #
+        # self.geometry[self.n_regions]['r'] = (w + h) / pi if r is None else r  # Radius
+        # self.geometry[self.n_regions]['w'] = w                                 # Width
+        # self.geometry[self.n_regions]['h'] = h                                 # Height
+        # self.n_regions += 1                                                    # Add new region to the geometry
+
+
+
+
+
+
+        # self.geometry[self.n_regions] = {}                                            # Add new region to the geometry
+        # self.geometry[self.n_regions]['type'] = 'nc'                                  # Type of region
+        # self.geometry[self.n_regions]['x0'] = x0                                      # Initial point
+        # self.geometry[self.n_regions]['xf'] = xf                                      # Final point
+        # self.geometry[self.n_regions]['dx'] = abs(xf - x0)/n_points                   # X increment
+        # self.geometry[self.n_regions]['n_points'] = n_points                          # Number of points in the discretisation
+        # self.geometry[self.n_regions]['V'] = Vnm                                      # External potential
+        #
+        # r1 = (w1 + h1) / pi if r1 is None else r1                                     # Initial radius
+        # r2 = (w2 + h2) / pi if r2 is None else r2                                     # Final radius
+        # x = np.linspace(x0, xf, n_points)                                             # Discretised region
+        #
+        # self.geometry[self.n_regions]['r'] = geom_nc(x, x0, xf, r1, r2, sigma)        # Radius
+        # if w1 is None or w2 is None: self.geometry[self.n_regions]['w'] = None        # Width
+        # else: self.geometry[self.n_regions]['w'] = geom_nc(x, x0, xf, w1, w2, sigma)  # Width
+        # if h1 is None or h2 is None: self.geometry[self.n_regions]['h'] = None        # Height
+        # else: self.geometry[self.n_regions]['h'] = geom_nc(x, x0, xf, h1, h2, sigma)  # Height
+        # self.n_regions += 1
