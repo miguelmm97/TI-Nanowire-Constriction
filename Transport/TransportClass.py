@@ -10,11 +10,11 @@ from numba import njit  # "nopython just in time (compiler)"
 # nb.set_num_threads(1)
 
 # Constants
-hbar = 1e-34                # Planck's constant in Js
-nm = 1e-9                   # Conversion from nm to m
-ams = 1e-10                 # Conversion from Å to m
-e = 1.6e-19                 # Electron charge in C
-phi0 = 2 * pi * hbar / e    # Quantum of flux
+hbar = 1e-34  # Planck's constant in Js
+nm = 1e-9  # Conversion from nm to m
+ams = 1e-10  # Conversion from Å to m
+e = 1.6e-19  # Electron charge in C
+phi0 = 2 * pi * hbar / e  # Quantum of flux
 
 # Pauli matrices
 sigma_0 = np.eye(2, dtype=np.complex128)
@@ -23,18 +23,18 @@ sigma_y = np.array([[0, -1j], [1j, 0]], dtype=np.complex128)
 sigma_z = np.array([[1, 0], [0, -1]], dtype=np.complex128)
 
 
-
-
-
 def step(x1, x2, sigma=None):
     # Smoothened step function theta(x1-x2)
-    if sigma is None: return np.heaviside(x1 - x2, 1)
-    else: return 0.5 + (1 / pi) * np.arctan(sigma * (x1 - x2))
+    if sigma is None:
+        return np.heaviside(x1 - x2, 1)
+    else:
+        return 0.5 + (1 / pi) * np.arctan(sigma * (x1 - x2))
 
 def geom_nc(x, x1, x2, r1, r2, sigma=None):
     # x1, r1: Initial widest part
     # x2, r2: Final narrow part
-    return r1 + (r2 - r1) * step(x, x2, sigma) + ((r2 - r1) / (x2 - x1)) * (x - x1) * (step(x, x1, sigma) - step(x, x2, sigma))
+    return r1 + (r2 - r1) * step(x, x2, sigma) + ((r2 - r1) / (x2 - x1)) * (x - x1) * (
+            step(x, x1, sigma) - step(x, x2, sigma))
 
 def geom_cons(x, x1, x2, x3, r1, r2, sigma):
     # x1, r1: Initial lead
@@ -44,13 +44,13 @@ def geom_cons(x, x1, x2, x3, r1, r2, sigma):
 
 # @njit(parallel=True, cache=True)
 def M_Ax(modes, dx, w, h, B_perp=0.):
-
-    if w is None or h is None: return 0
+    if w is None or h is None:
+        return 0
 
     else:
-        P = 2 * (w + h)                                                    # Perimeter of the nanostructure at x (in nm)
-        r = w / (w + h)                                                    # Aspect ratio of the nanostructure at x (in nm)
-        C = - 1j * (nm ** 2 / hbar) * e * B_perp * P / pi ** 2             # Auxiliary constant for the matrix elements
+        P = 2 * (w + h)  # Perimeter of the nanostructure at x (in nm)
+        r = w / (w + h)  # Aspect ratio of the nanostructure at x (in nm)
+        C = - 1j * (nm ** 2 / hbar) * e * B_perp * P / pi ** 2  # Auxiliary constant for the matrix elements
         M = np.zeros(shape=(len(modes), len(modes)), dtype=np.complex128)  # Mode mixing matrix for the vector potential
         if B_perp != 0:
             i = 0
@@ -67,17 +67,16 @@ def M_Ax(modes, dx, w, h, B_perp=0.):
 
 # @njit(parallel=True, cache=True)
 def M_theta(modes, dx, R, dR, w=None, h=None, B_par=0.):
-
     C = 0.5 * (nm ** 2) * e * B_par / hbar
     A_theta = C * R ** 2 if (w is None or h is None) else C * (w * h / pi)  # A_theta = eBa²/2hbar
-    M = (np.sqrt(1 + dR ** 2) / R) * np.diag(modes - 0.5 + A_theta)         # 1/R (n-1/2 + eBa²/2hbar) term
+    M = (np.sqrt(1 + dR ** 2) / R) * np.diag(modes - 0.5 + A_theta)  # 1/R (n-1/2 + eBa²/2hbar) term
 
     return np.kron(sigma_x, M) * dx
 
 # @njit(parallel=True, cache=True)
 def M_EV(modes, dx, dR, E, vf, Vnm=None):
-
-    if Vnm is None: Vnm = np.zeros(len(modes))
+    if Vnm is None:
+        Vnm = np.zeros(len(modes))
     else:
         if Vnm.shape != (len(modes), len(modes)):
             raise AssertionError('Vnm must be the Fourier transform matrix of V')
@@ -86,28 +85,26 @@ def M_EV(modes, dx, dR, E, vf, Vnm=None):
     return np.kron(sigma_z, M) * dx
 
 def transfer_to_scattering(transfer_matrix: 'np.ndarray[np.complex128]'):
-
     # Transform from the transfer matrix to the scattering matrix
     # transfer_matrix: Transfer matrix to translate to scattering
     # n_modes: Number of modes contributing to transport (N_states/2 because spin momentum locking)
 
     n_modes = int(transfer_matrix.shape[0] / 2)
-    inv_T  = transfer_matrix[0: n_modes, 0: n_modes]  # t^\dagger ^(-1)
-    inv_Tp = transfer_matrix[n_modes:, n_modes:]      # t' ^(-1)
-    inv_R  = transfer_matrix[n_modes:, 0: n_modes]    # -t'^(-1) r
-    inv_Rp = transfer_matrix[0: n_modes, n_modes:]    # r't'^(-1)
+    inv_T = transfer_matrix[0: n_modes, 0: n_modes]  # t^\dagger ^(-1)
+    inv_Tp = transfer_matrix[n_modes:, n_modes:]  # t' ^(-1)
+    inv_R = transfer_matrix[n_modes:, 0: n_modes]  # -t'^(-1) r
+    inv_Rp = transfer_matrix[0: n_modes, n_modes:]  # r't'^(-1)
 
-    T  = inv(inv_T).T.conj()                          # t
-    Tp = inv(inv_Tp)                                  # t'
-    R  = - Tp @ inv_R                                 # r
-    Rp = inv_Rp @ Tp                                  # r'
+    T = inv(inv_T).T.conj()  # t
+    Tp = inv(inv_Tp)  # t'
+    R = - Tp @ inv_R  # r
+    Rp = inv_Rp @ Tp  # r'
 
-    scat_matrix = np.block([[R, Tp], [T, Rp]])        # scattering matrix
+    scat_matrix = np.block([[R, Tp], [T, Rp]])  # scattering matrix
 
     return scat_matrix
 
 def scat_product(s1: 'np.ndarray[np.complex128]', s2: 'np.ndarray[np.complex128]'):
-
     # Product combining two scattering matrices
     # s1, s2: Scattering matrices to combine
     # n_modes: Number of modes contributing to transport (N_states/2 because spin momentum locking)
@@ -116,20 +113,20 @@ def scat_product(s1: 'np.ndarray[np.complex128]', s2: 'np.ndarray[np.complex128]
         raise ValueError(" Different size for scattering matrices")
 
     n_modes = int(s1.shape[0] / 2)
-    r1, r2   = s1[0: n_modes, 0: n_modes], s2[0: n_modes, 0: n_modes]  # r1, r2
-    r1p, r2p = s1[n_modes:, n_modes:], s2[n_modes:, n_modes:]          # r1', r2'
-    t1, t2   = s1[n_modes:, 0: n_modes], s2[n_modes:, 0: n_modes]      # t1, t2
-    t1p, t2p = s1[0: n_modes, n_modes:], s2[0: n_modes, n_modes:]      # t1', t2'
+    r1, r2 = s1[0: n_modes, 0: n_modes], s2[0: n_modes, 0: n_modes]  # r1, r2
+    r1p, r2p = s1[n_modes:, n_modes:], s2[n_modes:, n_modes:]  # r1', r2'
+    t1, t2 = s1[n_modes:, 0: n_modes], s2[n_modes:, 0: n_modes]  # t1, t2
+    t1p, t2p = s1[0: n_modes, n_modes:], s2[0: n_modes, n_modes:]  # t1', t2'
 
     r1pr2t1 = inv(np.eye(n_modes) - r1p @ r2) @ t1
     r2r1pt2p = inv(np.eye(n_modes) - r2 @ r1p) @ t2p
 
-    R  = r1 + t1p @ r2 @ r1pr2t1                                       # r
-    Rp = r2p + t2 @ r1p @ r2r1pt2p                                     # r'
-    T  = t2 @ r1pr2t1                                                  # t
-    Tp = t1p @ r2r1pt2p                                                # t'
+    R = r1 + t1p @ r2 @ r1pr2t1  # r
+    Rp = r2p + t2 @ r1p @ r2r1pt2p  # r'
+    T = t2 @ r1pr2t1  # t
+    Tp = t1p @ r2r1pt2p  # t'
 
-    scat_matrix = np.block([[R, Tp], [T, Rp]])                         # scattering matrix
+    scat_matrix = np.block([[R, Tp], [T, Rp]])  # scattering matrix
     return scat_matrix
 
 def transport_checks(transfer_matrix=None, scat_matrix=None, conservation='off', unitarity='off', completeness='off'):
@@ -150,7 +147,8 @@ def transport_checks(transfer_matrix=None, scat_matrix=None, conservation='off',
     # Conservation of the current
     if transfer_matrix is not None and conservation == 'on':
         check1 = transfer_matrix @ np.kron(sigma_z, np.eye(n_modes)) @ np.conj(transfer_matrix.T)
-        if not np.allclose(np.kron(sigma_z, np.eye(n_modes)), check1): raise AssertionError('Transfer matrix does not conserve current')
+        if not np.allclose(np.kron(sigma_z, np.eye(n_modes)), check1): raise AssertionError(
+            'Transfer matrix does not conserve current')
 
     # Unitarity of the scattering matrix
     if scat_matrix is not None and unitarity == 'on':
@@ -158,13 +156,13 @@ def transport_checks(transfer_matrix=None, scat_matrix=None, conservation='off',
         # print("Unitarity of S: tr(S^\dagger S) - n_modes= ", np.trace(check2) - (2 * n_modes))
         if not np.allclose(np.eye(2 * n_modes), check2, 1e-15): raise AssertionError('Scattering matrix is not unitary')
 
-
     # Completeness of reflection and transmission
     if scat_matrix is not None and completeness == 'on':
         t, r = scat_matrix[n_modes:, 0: n_modes], scat_matrix[0: n_modes, 0: n_modes]
         t_dagger, r_dagger = np.conj(t.T), np.conj(r.T)
         # print("Completeness of reflexion/transmission: n:modes - tr(r^\dagger r) - tr(t^\dagger t) =", n_modes-np.trace(r_dagger @ r)-np.trace(t_dagger @ t))
-        if not np.allclose(n_modes-np.trace(r_dagger @ r), np.trace(t_dagger @ t)): raise AssertionError('Reflexion doesnt add up to transmission')
+        if not np.allclose(n_modes - np.trace(r_dagger @ r), np.trace(t_dagger @ t)): raise AssertionError(
+            'Reflexion doesnt add up to transmission')
 
 def gaussian_correlated_potential_1D(x_vec, strength, correlation_length, vf, Nq, Vn=None, phi_n=None):
     """
@@ -189,7 +187,8 @@ def gaussian_correlated_potential_1D(x_vec, strength, correlation_length, vf, Nq
     """
 
     # Checks and defs
-    L = x_vec[-1] - x_vec[0]; dx = x_vec[1] - x_vec[0]
+    L = x_vec[-1] - x_vec[0];
+    dx = x_vec[1] - x_vec[0]
     qmax = 2 * pi * Nq / L
     if not isinstance(Nq, int): raise ValueError('Nq must be an integer!')
     if dx < 2 * pi / qmax: raise ValueError('dx must be larger than pi/qmax for FT to work')
@@ -198,8 +197,9 @@ def gaussian_correlated_potential_1D(x_vec, strength, correlation_length, vf, Nq
 
     # Generate modes of the potential
     if Vn is None and phi_n is None:
-        std_n = np.sqrt(strength * (vf ** 2 / correlation_length) * np.exp(-0.5 * (correlation_length * 2 * pi * n / L) ** 2))
-        phi_n =np.random.uniform(0, 2 * pi, size=Nq)
+        std_n = np.sqrt(
+            strength * (vf ** 2 / correlation_length) * np.exp(-0.5 * (correlation_length * 2 * pi * n / L) ** 2))
+        phi_n = np.random.uniform(0, 2 * pi, size=Nq)
         Vn = np.random.normal(scale=std_n)
         V0 = np.random.normal(scale=np.sqrt(strength * (vf ** 2 / correlation_length)))
     elif Vn is not None and phi_n is not None:
@@ -207,12 +207,13 @@ def gaussian_correlated_potential_1D(x_vec, strength, correlation_length, vf, Nq
     else:
         raise ValueError('Vqn and phi_qn must both be determined or undetermined at the same time')
 
-
     # Translate to real space
-    for i, x in enumerate(x_vec):  Vgauss[i] = V0 / np.sqrt(L) + (2 / np.sqrt(L)) * np.dot(Vn, np.cos(2 * pi * n * x / L + phi_n))
+    for i, x in enumerate(x_vec):  Vgauss[i] = V0 / np.sqrt(L) + (2 / np.sqrt(L)) * np.dot(Vn, np.cos(
+        2 * pi * n * x / L + phi_n))
     return Vgauss, Vn, phi_n
 
-def gaussian_correlated_potential_2D(x_vec, theta_vec, r, strength, correlation_length, vf, Nq, Nl, Vnm=None, phi_nm=None):
+def gaussian_correlated_potential_2D(x_vec, theta_vec, r, strength, correlation_length, vf, Nq, Nl, Vnm=None,
+                                     phi_nm=None):
     """
     Generates a sample of a gaussian correlated potential V(x, theta) with strength,
     a certain correlation length and Nq, Ntheta points in momentum space.
@@ -239,8 +240,10 @@ def gaussian_correlated_potential_2D(x_vec, theta_vec, r, strength, correlation_
 
     # Checks and defs
     L = x_vec[-1] - x_vec[0]
-    dx = x_vec[1] - x_vec[0]; dtheta = theta_vec[1] - theta_vec[0]
-    qmax = 2 * pi * Nq / L; lmax = Nl / r
+    dx = x_vec[1] - x_vec[0];
+    dtheta = theta_vec[1] - theta_vec[0]
+    qmax = 2 * pi * Nq / L;
+    lmax = Nl / r
     if not isinstance(Nq, int): raise TypeError('Nq must be an integer!')
     if not isinstance(Nl, int): raise TypeError('Ntheta must be an integer!')
     if dx < 2 * pi / qmax: raise ValueError('dx must be larger than pi / qmax for FT to work')
@@ -249,7 +252,6 @@ def gaussian_correlated_potential_2D(x_vec, theta_vec, r, strength, correlation_
     # M = np.repeat(np.arange(0, Nl, dtype=float), Nq).reshape((Nq, Nl))
     N = np.tile(np.arange(-Nq, Nq, dtype=float), 2 * Nl).reshape((2 * Nq, 2 * Nl))
     M = np.repeat(np.arange(-Nl, Nl, dtype=float), 2 * Nq).reshape((2 * Nq, 2 * Nl))
-
 
     # Generate modes of the potential
     if Vnm is None and phi_nm is None:
@@ -300,7 +302,8 @@ def gaussian_correlated_potential_1D_FFT(L, Nx, strength, xi, vf):
 
     # Definitions for the transform
     dx = L / Nx
-    fmax = 2 * pi / dx; df = 2 * pi / L
+    fmax = 2 * pi / dx;
+    df = 2 * pi / L
     f = np.linspace(0, fmax / 2, num=int(Nx / 2) + 1, endpoint=False)
 
     # Correlations and fourier modes
@@ -340,10 +343,14 @@ def gaussian_correlated_potential_2D_FFT(L, r, Nx, Ny, strength, xi, vf):
     if (Nx % 2 == 0) or (Ny % 2 == 0): raise ValueError('Nx and Ny must be odd')
 
     # Definitions for the transform
-    dx = L / Nx; dy = 2 * pi * r / Ny
-    nx = int(Nx / 2); ny = int(Ny / 2)
-    fmax_x = 2 * pi / dx; df_x = 2 * pi / L
-    fmax_y = 2 * pi / dy; df_y = 1 / r
+    dx = L / Nx;
+    dy = 2 * pi * r / Ny
+    nx = int(Nx / 2);
+    ny = int(Ny / 2)
+    fmax_x = 2 * pi / dx;
+    df_x = 2 * pi / L
+    fmax_y = 2 * pi / dy;
+    df_y = 1 / r
     fx = np.linspace(0, fmax_x / 2, num=nx + 1, endpoint=False)
     fy = np.linspace(0, fmax_y / 2, num=ny + 1, endpoint=False)
     FX, FY = np.meshgrid(fx, fy)
@@ -356,8 +363,10 @@ def gaussian_correlated_potential_2D_FFT(L, r, Nx, Ny, strength, xi, vf):
     V[0, 1:] = np.concatenate((V_x0, V_x0[::-1]))
     V[1:, 0] = np.concatenate((V_0y, V_0y[::-1]))
     V[0, 0] = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[0, 0] ** 2 + FY[0, 0] ** 2)))
-    V[1: ny + 1, 1: nx + 1] = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 1:] ** 2 + FY[1:, 1:] ** 2)))
-    V[ny + 1:, 1: nx + 1] = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 1:][::-1, :] ** 2 + FY[1:, 1:][::-1, :] ** 2)))
+    V[1: ny + 1, 1: nx + 1] = np.random.normal(
+        scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 1:] ** 2 + FY[1:, 1:] ** 2)))
+    V[ny + 1:, 1: nx + 1] = np.random.normal(
+        scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 1:][::-1, :] ** 2 + FY[1:, 1:][::-1, :] ** 2)))
     V[1: ny + 1, nx + 1:] = V[ny + 1:, 1: nx + 1][::-1, ::-1]
     V[ny + 1:, nx + 1:] = V[1: ny + 1, 1: nx + 1][::-1, ::-1]
 
@@ -390,26 +399,25 @@ def get_fileID(file_list):
     return expID + 1
 
 
-
-
 @dataclass
 class transport:
-
     """ Transport calculations on 3dTI nanostructures based on their effective surface theory."""
-    vf:        float                       # Fermi velocity in meV nm
-    B_perp:    float                       # Magnetic field perpendicular to the axis of the nanostructure
-    B_par:     float                       # Magnetic field parallel to the axis of the nanostructure
-    l_cutoff:  int                         # Cutoff in the number of angular momentum modes
-    # geometry:  dict = field(init=False)    # Dictionary codifying the geometry
-    # n_regions: int = field(init=False)     # Number of different regions in the nanostructure
+
+    vf: float       # Fermi velocity in meV nm
+    B_perp: float   # Magnetic field perpendicular to the axis of the nanostructure
+    B_par: float    # Magnetic field parallel to the axis of the nanostructure
+    l_cutoff: int   # Cutoff in the number of angular momentum modes
+    geometry = {}
+    n_regions = 0
+    modes: np.ndarray = field(default_factory=np.arange)
+    Nmodes = len(modes)
+    S_tot = None
+    T_tot = None
 
     def __post_init__(self):
-        self.geometry = {}
-        self.n_regions = 0
-        self.modes = np.arange(-self.l_cutoff, self.l_cutoff+1)
-        self.Nmodes = len(self.modes)
-        self.S_tot = None
-        self.T_tot = None
+        self.modes = np.arange(-self.l_cutoff, self.l_cutoff + 1)
+
+    # Methods for creating the geometry of the transport region
 
     def add_nw(self, x0, xf, Vnm=None, n_points=None, r=None, w=None, h=None):
         """
@@ -436,13 +444,14 @@ class transport:
             'type': 'nw',
             'x0': x0,
             'xf': xf,
-            'dx': 100 if n_points is None else abs(xf - x0) / n_points,
             'n_points': n_points,
             'V': Vnm,
-            'r': (w + h) / pi if r is None else r,
             'w': w,
-            'h': h
+            'h': h,
+            'r': (w + h) / pi if r is None else r,
+            'dx': 100 if n_points is None else abs(xf - x0) / n_points,
         }
+
         self.n_regions += 1
 
     def add_nc(self, x0, xf, n_points, Vnm=None, sigma=None, r1=None, r2=None, w1=None, w2=None, h1=None, h2=None):
@@ -487,6 +496,7 @@ class transport:
             'w': None if w1 is None or w2 is None else geom_nc(x, x0, xf, w1, w2, sigma),
             'h': None if h1 is None or h2 is None else geom_nc(x, x0, xf, h1, h2, sigma)
         }
+
         self.n_regions += 1
 
     def build_geometry(self, r_vec, x_vec, V_vec, n_vec=None, sigma_vec=None):
@@ -527,24 +537,29 @@ class transport:
         if n_vec is None: n_vec = np.repeat(None, x_vec.shape[0])
 
         if len(V_vec.shape) == 1:
-            for i, (r, x, V, n, sigma) in enumerate(zip(r_vec[:-1], x_vec[:-1], V_vec[:-1], n_vec[:-1], sigma_vec[:-1])):
+            for i, (r, x, V, n, sigma) in enumerate(
+                    zip(r_vec[:-1], x_vec[:-1], V_vec[:-1], n_vec[:-1], sigma_vec[:-1])):
                 if r != r_vec[i + 1]:
                     self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
                 else:
                     self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
 
         elif len(V_vec.shape) == 2:
-            for i, (r, x, V, n, sigma) in enumerate(zip(r_vec[:-1], x_vec[:-1], V_vec[:, :-1].T, n_vec[:-1], sigma_vec[:-1])):
+            for i, (r, x, V, n, sigma) in enumerate(
+                    zip(r_vec[:-1], x_vec[:-1], V_vec[:, :-1].T, n_vec[:-1], sigma_vec[:-1])):
                 if r != r_vec[i + 1]:
                     self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
                 else:
                     self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
 
-    def get_scattering_transfer(self, E, region_type, x0, xf, dx, n_points, V, r, w, h, S=None, T=None, backwards=False):
+    # Methods for calculating transport-related quantities
+
+    def get_scattering_transfer(self, E, region_type, x0, xf, dx, n_points, V, r, w, h, S=None, T=None,
+                                backwards=False):
 
         # For nanowires
         if region_type == 'nw':
-            M = M_EV(self.modes, dx, 0, E, self.vf, V) + M_theta(self.modes, dx, r, 0, w, h, B_par=self.B_par) +\
+            M = M_EV(self.modes, dx, 0, E, self.vf, V) + M_theta(self.modes, dx, r, 0, w, h, B_par=self.B_par) + \
                 M_Ax(self.modes, dx, w, h, B_perp=self.B_perp)
             if backwards: M = - M
 
@@ -552,11 +567,12 @@ class transport:
             if n_points is None:
                 T = expm(M * (xf - x0) / dx)
                 S = transfer_to_scattering(T) if S is None else scat_product(S, transfer_to_scattering(T))
-                if np.isnan(S).any(): raise OverflowError('Length too long to calculate the scattering matrix directly. Need for discretisation!')
+                if np.isnan(S).any(): raise OverflowError(
+                    'Length too long to calculate the scattering matrix directly. Need for discretisation!')
 
             # Need for discretisation
             else:
-                dT = expm(M)
+                dT = expm(M);
                 T = expm(M * (xf - x0) / dx)
                 dS = transfer_to_scattering(dT)
                 for j in range(n_points): S = dS if (S is None and j == 0) else scat_product(S, dS)
@@ -564,66 +580,23 @@ class transport:
         # For variable radius geometries
         else:
             for j in range(n_points - 1):
-
                 dr = r[j + 1] - r[j]
-                try: w = w[j], h = h[j]
-                except TypeError: w = None; h = None
+                try:
+                    w = w[j], h = h[j]
+                except TypeError:
+                    w = None; h = None
 
-                M = M_EV(self.modes, dx, dr, E, self.vf, V) + M_theta(self.modes, dx, r[j], dr, w=w, h=h, B_par=self.B_par) +\
+                M = M_EV(self.modes, dx, dr, E, self.vf, V) + M_theta(self.modes, dx, r[j], dr, w=w, h=h,
+                                                                      B_par=self.B_par) + \
                     M_Ax(self.modes, dx, w, h, B_perp=self.B_perp)
                 dT = expm(-M) if backwards else expm(M)
-                T = dT if (T is None and j == 0) else T = dT @ T
                 dS = transfer_to_scattering(dT)
+                T = dT if (T is None and j == 0) else T = dT @ T
                 S = dS if (S is None and j == 0) else scat_product(dS, S)
 
         return S, T
 
-    def get_scattering_transfer2(self, E, initial_region=0, final_region=None, backwards=False, save=False):
-
-        if final_region is None: final_region = self.n_regions
-
-        increment = -1 if backwards else 1
-        for i in range(initial_region, final_region, increment):
-
-            # For nanowires
-            if self.geometry[i]['type'] == 'nw':
-                M = M_EV(self.modes, self.geometry[i]['dx'], 0, E, self.vf, self.geometry[i]['V'])
-                M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'], 0, self.geometry[i]['w'], self.geometry[i]['h'], B_par=self.B_par)
-                M += M_Ax(self.modes, self.geometry[i]['dx'], self.geometry[i]['w'], self.geometry[i]['h'], B_perp=self.B_perp)
-                if backwards: M = - M
-
-                # No need for discretisation
-                if self.geometry[i]['n_points'] is None:
-                    T = expm(M * (self.geometry[i]['xf'] - self.geometry[i]['x0']) / self.geometry[i]['dx'])
-                    S = transfer_to_scattering(T) if i == 0 else scat_product(S, transfer_to_scattering(T))
-                    if np.isnan(S).any(): raise OverflowError('Length too long to calculate the scattering matrix directly. Need for discretisation!')
-
-                # Need for discretisation
-                else:
-                    dT = expm(M)
-                    dS = transfer_to_scattering(dT)
-                    for j in range(self.geometry[i]['n_points']):
-                        S = dS if (i == 0 and j == 0) else scat_product(S, dS)
-
-            # For variable radius geometries
-            else:
-                for j in range(self.geometry[i]['n_points'] - 1):
-                    dr = self.geometry[i]['r'][j + 1] - self.geometry[i]['r'][j]
-                    try:
-                        w = self.geometry[i]['w'][j]; h = self.geometry[i]['h'][j];
-                    except TypeError:
-                        w = None; h = None
-                    M = M_EV(self.modes, self.geometry[i]['dx'], dr, E, self.vf, self.geometry[i]['V'])
-                    M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'][j], dr, w=w, h=h, B_par=self.B_par)
-                    M += M_Ax(self.modes, self.geometry[i]['dx'], w, h, B_perp=self.B_perp)
-                    dT = expm(-M) if backwards else expm(M)
-                    dS = transfer_to_scattering(dT)
-                    S = dS if (i == 0 and j == 0) else scat_product(dS, S)
-
-        if save: self.S_tot, self.T_tot = S, T
-        return S, T
-
-    def get_Landauer_conductance(self, E, save=False):
+    def get_Landauer_conductance(self, E, save_S=False, save_T=False):
         """
         Calculates the Landauer conductance along the whole geometry at the Fermi energy E.
 
@@ -638,8 +611,9 @@ class transport:
 
         S, T = None, None
         for i in range(0, self.n_regions):
-            S = self.get_scattering_transfer(E, **self.geometry[i], S=S, T=T)
-        if save: self.S_tot = S, self.T_tot = T
+            S = self.get_scattering_transfer(E, **self.geometry[i], S=S, T=T)[0]
+        if save_S: self.S_tot = S
+        if save_T: self.T_tot = T
 
         t = S[self.Nmodes:, 0: self.Nmodes]
         G = np.trace(t.T.conj() @ t)
@@ -647,19 +621,23 @@ class transport:
 
     def get_scattering_states(self, E, theta_vec):
 
-        if self.S_tot is None or self.T_tot is None: raise AssertionError('Need to save global S and T!')
-        psi_scatt = np.zeros(self.n_regions, len(theta_vec))
+        if self.S_tot is None or self.T_tot is None:
+            S, T = None, None
+            for i in range(0, self.n_regions):
+                self.S_tot, self.T_tot = self.get_scattering_transfer(E, **self.geometry[i], S=S, T=T)[0]
 
         # Incoming modes
-        phi_0 = np.ones((2 * self.Nmodes, ))
+        phi_0 = np.ones((2 * self.Nmodes,))
         phi_0[self.Nmodes:] = self.S_tot[0: self.Nmodes, 0: self.Nmodes] @ phi_0[: self.Nmodes]
 
         # Transfer to position x
         T_x = np.ones((2 * self.Nmodes, 2 * self.Nmodes))
+        psi_scatt = np.zeros(self.n_regions, len(theta_vec))
         for i in range(self.n_regions, 0, -1):
-            T_x = self.get_scattering_transfer(E, initial_region=i, final_region=i - 1, backwards=True) @ T_x
+            T_x = self.get_scattering_transfer(E, **self.geometry[i], backwards=True) @ T_x
             phi_x = T_x @ np.kron(sigma_x, np.eye(self.Nmodes)) @ self.T_tot @ phi_0
 
+            # Scattering states
             theta = np.repeat(theta_vec, 2 * self.Nmodes).reshape(2 * self.Nmodes, len(theta_vec))
             Mmodes = np.tile(self.modes, len(theta_vec)).reshape(len(theta_vec), 2 * self.Nmodes)
             psi_scatt[i, :] = np.exp(1j * Mmodes * theta * self.geometry[i]['r']) @ phi_x
@@ -683,24 +661,24 @@ class transport:
 
         # Geometry
         if self.geometry[region]['type'] != 'nw': raise ValueError('Can only calculate spectrum in a nanowire!')
-        w = self.geometry[region]['w']                  # Width
-        h = self.geometry[region]['h']                  # Height
-        r = self.geometry[region]['r']                  # Radius
-        P = 2 * (w + h) if r is None else 2 * pi * r    # Perimeter
+        w = self.geometry[region]['w']  # Width
+        h = self.geometry[region]['h']  # Height
+        r = self.geometry[region]['r']  # Radius
+        P = 2 * (w + h) if r is None else 2 * pi * r  # Perimeter
 
         # Parallel gauge field: hbar vf 2pi/P (n-1/2 + A) * sigma_y
         A_theta = 0
         if self.B_par != 0:
-            Ctheta  = 0.5 * (nm ** 2) * e * self.B_par / hbar
+            Ctheta = 0.5 * (nm ** 2) * e * self.B_par / hbar
             A_theta = Ctheta * r ** 2 if (w is None or h is None) else Ctheta * (w * h) / pi
-        Mtheta  = np.diag((2 * pi / P) * (self.modes - (1 / 2) + A_theta))
+        Mtheta = np.diag((2 * pi / P) * (self.modes - (1 / 2) + A_theta))
         Hxtheta = self.vf * np.kron(Mtheta, sigma_y)
 
         # Perpendicular gauge field: e vf < n | A_x | m > * sigma_x
         if self.B_perp != 0:
             r_aspect = w / (w + h)
             Cx = (nm ** 2 / hbar) * e * self.B_perp * P / pi ** 2
-            Ax  = np.zeros((self.Nmodes, self.Nmodes), dtype=np.complex128)
+            Ax = np.zeros((self.Nmodes, self.Nmodes), dtype=np.complex128)
             i = 0
             for n1 in self.modes:
                 j = 0
@@ -717,11 +695,11 @@ class transport:
         E = np.zeros((2 * self.Nmodes, len(k_range)))
         for k in k_range:
             Mk = (self.vf * k).repeat(self.Nmodes)  # hbar vf k
-            Hk = np.kron(np.diag(Mk), sigma_x)      # hbar vf k * sigma_x
-            H = Hk + Hxtheta                        # H(k)
-            E[:, i] = np.linalg.eigvalsh(H)         # E(k)
-            idx = E[:, i].argsort()                 # Ordering the energy bands at k
-            E[:, i] = E[idx, i]                     # Ordered E(k)
+            Hk = np.kron(np.diag(Mk), sigma_x)  # hbar vf k * sigma_x
+            H = Hk + Hxtheta  # H(k)
+            E[:, i] = np.linalg.eigvalsh(H)  # E(k)
+            idx = E[:, i].argsort()  # Ordering the energy bands at k
+            E[:, i] = E[idx, i]  # Ordered E(k)
             i += 1
 
         # Bottom of the bands (centrifugal potential)
@@ -748,13 +726,13 @@ class transport:
 
         """
 
-
         try:
             return V * np.eye(2 * self.l_cutoff + 1)
         except ValueError:
             Vnm = np.zeros((self.modes.shape[0], self.modes.shape[0]), dtype='complex128')
             for i in range(self.modes.shape[0]):
-                if i == 0: Vnm += np.diag(np.repeat(V[0], self.modes.shape[0]), 0)
+                if i == 0:
+                    Vnm += np.diag(np.repeat(V[0], self.modes.shape[0]), 0)
                 else:
                     Vnm += np.diag(np.repeat(V[-i], self.modes.shape[0] - i), - i)
                     Vnm += np.diag(np.repeat(V[i], self.modes.shape[0] - i), i)
@@ -769,79 +747,69 @@ class transport:
 
 
 
-
-   #     for i in range(0, self.n_regions):
-   #         if self.geometry[i]['type'] == 'nw':
-   #             M = M_EV(self.modes, self.geometry[i]['dx'], 0, E, self.vf, self.geometry[i]['V'])
-   #             M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'], 0, self.geometry[i]['w'], self.geometry[i]['h'], B_par=self.B_par)
-   #             M += M_Ax(self.modes, self.geometry[i]['dx'], self.geometry[i]['w'], self.geometry[i]['h'], B_perp=self.B_perp)
+#     for i in range(0, self.n_regions):
+#         if self.geometry[i]['type'] == 'nw':
+#             M = M_EV(self.modes, self.geometry[i]['dx'], 0, E, self.vf, self.geometry[i]['V'])
+#             M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'], 0, self.geometry[i]['w'], self.geometry[i]['h'], B_par=self.B_par)
+#             M += M_Ax(self.modes, self.geometry[i]['dx'], self.geometry[i]['w'], self.geometry[i]['h'], B_perp=self.B_perp)
 #
-   #             if self.geometry[i]['n_points'] is None:
-   #                 T = expm(M * (self.geometry[i]['xf'] - self.geometry[i]['x0']) / self.geometry[i]['dx'])
-   #                 S = transfer_to_scattering(T) if i == 0 else scat_product(S, transfer_to_scattering(T))
-   #                 if np.isnan(S).any(): raise OverflowError('Length to long to calculate the scattering matrix directly. Need for discretisation!')
-   #                 if save_ST: self.S = S; self.T = T
+#             if self.geometry[i]['n_points'] is None:
+#                 T = expm(M * (self.geometry[i]['xf'] - self.geometry[i]['x0']) / self.geometry[i]['dx'])
+#                 S = transfer_to_scattering(T) if i == 0 else scat_product(S, transfer_to_scattering(T))
+#                 if np.isnan(S).any(): raise OverflowError('Length to long to calculate the scattering matrix directly. Need for discretisation!')
+#                 if save_ST: self.S = S; self.T = T
 #
 #
-   #             else:
-   #                 dT = expm(M)
-   #                 dS = transfer_to_scattering(dT)
-   #                 for j in range(self.geometry[i]['n_points']):
-   #                     S = dS if (i == 0 and j == 0) else scat_product(S, dS)
-   #         else:
-   #             for j in range(self.geometry[i]['n_points'] - 1):
-   #                 dr = self.geometry[i]['r'][j + 1] - self.geometry[i]['r'][j]
-   #                 try:
-   #                     w = self.geometry[i]['w'][j]; h = self.geometry[i]['h'][j];
-   #                 except TypeError:
-   #                     w = None; h = None
-   #                 M = M_EV(self.modes, self.geometry[i]['dx'], dr, E, self.vf, self.geometry[i]['V'])
-   #                 M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'][j], dr, w=w, h=h, B_par=self.B_par)
-   #                 M += M_Ax(self.modes, self.geometry[i]['dx'], w, h, B_perp=self.B_perp)
-   #                 dT = expm(M)
-   #                 dS = transfer_to_scattering(dT)
-   #                 S = dS if (i == 0 and j == 0) else scat_product(dS, S)
+#             else:
+#                 dT = expm(M)
+#                 dS = transfer_to_scattering(dT)
+#                 for j in range(self.geometry[i]['n_points']):
+#                     S = dS if (i == 0 and j == 0) else scat_product(S, dS)
+#         else:
+#             for j in range(self.geometry[i]['n_points'] - 1):
+#                 dr = self.geometry[i]['r'][j + 1] - self.geometry[i]['r'][j]
+#                 try:
+#                     w = self.geometry[i]['w'][j]; h = self.geometry[i]['h'][j];
+#                 except TypeError:
+#                     w = None; h = None
+#                 M = M_EV(self.modes, self.geometry[i]['dx'], dr, E, self.vf, self.geometry[i]['V'])
+#                 M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'][j], dr, w=w, h=h, B_par=self.B_par)
+#                 M += M_Ax(self.modes, self.geometry[i]['dx'], w, h, B_perp=self.B_perp)
+#                 dT = expm(M)
+#                 dS = transfer_to_scattering(dT)
+#                 S = dS if (i == 0 and j == 0) else scat_product(dS, S)
 
 
+# self.geometry[self.n_regions] = {}                                     # Add new region to the geometry
+# self.geometry[self.n_regions]['type'] = 'nw'                           # Type of region
+# self.geometry[self.n_regions]['x0'] = x0                               # Initial point
+# self.geometry[self.n_regions]['xf'] = xf                               # Final point
+# if n_points is None: self.geometry[self.n_regions]['dx'] = 100         # X increment
+# else: self.geometry[self.n_regions]['dx'] = abs(xf - x0) / n_points    # X increment
+# self.geometry[self.n_regions]['n_points'] = n_points                   # Number of points in the discretisation
+# self.geometry[self.n_regions]['V'] = Vnm                               # External potential
+#
+# self.geometry[self.n_regions]['r'] = (w + h) / pi if r is None else r  # Radius
+# self.geometry[self.n_regions]['w'] = w                                 # Width
+# self.geometry[self.n_regions]['h'] = h                                 # Height
+# self.n_regions += 1                                                    # Add new region to the geometry
 
 
-
-
-
-        # self.geometry[self.n_regions] = {}                                     # Add new region to the geometry
-        # self.geometry[self.n_regions]['type'] = 'nw'                           # Type of region
-        # self.geometry[self.n_regions]['x0'] = x0                               # Initial point
-        # self.geometry[self.n_regions]['xf'] = xf                               # Final point
-        # if n_points is None: self.geometry[self.n_regions]['dx'] = 100         # X increment
-        # else: self.geometry[self.n_regions]['dx'] = abs(xf - x0) / n_points    # X increment
-        # self.geometry[self.n_regions]['n_points'] = n_points                   # Number of points in the discretisation
-        # self.geometry[self.n_regions]['V'] = Vnm                               # External potential
-        #
-        # self.geometry[self.n_regions]['r'] = (w + h) / pi if r is None else r  # Radius
-        # self.geometry[self.n_regions]['w'] = w                                 # Width
-        # self.geometry[self.n_regions]['h'] = h                                 # Height
-        # self.n_regions += 1                                                    # Add new region to the geometry
-
-
-
-
-
-
-        # self.geometry[self.n_regions] = {}                                            # Add new region to the geometry
-        # self.geometry[self.n_regions]['type'] = 'nc'                                  # Type of region
-        # self.geometry[self.n_regions]['x0'] = x0                                      # Initial point
-        # self.geometry[self.n_regions]['xf'] = xf                                      # Final point
-        # self.geometry[self.n_regions]['dx'] = abs(xf - x0)/n_points                   # X increment
-        # self.geometry[self.n_regions]['n_points'] = n_points                          # Number of points in the discretisation
-        # self.geometry[self.n_regions]['V'] = Vnm                                      # External potential
-        #
-        # r1 = (w1 + h1) / pi if r1 is None else r1                                     # Initial radius
-        # r2 = (w2 + h2) / pi if r2 is None else r2                                     # Final radius
-        # x = np.linspace(x0, xf, n_points)                                             # Discretised region
-        #
-        # self.geometry[self.n_regions]['r'] = geom_nc(x, x0, xf, r1, r2, sigma)        # Radius
-        # if w1 is None or w2 is None: self.geometry[self.n_regions]['w'] = None        # Width
-        # else: self.geometry[self.n_regions]['w'] = geom_nc(x, x0, xf, w1, w2, sigma)  # Width
-        # if h1 is None or h2 is None: self.geometry[self.n_regions]['h'] = None        # Height
-        # else: self.geometry[self.n_regions]['h'] = geom_nc(x, x0, xf, h1, h2, sigma)  # Height
-        # self.n_regions += 1
+# self.geometry[self.n_regions] = {}                                            # Add new region to the geometry
+# self.geometry[self.n_regions]['type'] = 'nc'                                  # Type of region
+# self.geometry[self.n_regions]['x0'] = x0                                      # Initial point
+# self.geometry[self.n_regions]['xf'] = xf                                      # Final point
+# self.geometry[self.n_regions]['dx'] = abs(xf - x0)/n_points                   # X increment
+# self.geometry[self.n_regions]['n_points'] = n_points                          # Number of points in the discretisation
+# self.geometry[self.n_regions]['V'] = Vnm                                      # External potential
+#
+# r1 = (w1 + h1) / pi if r1 is None else r1                                     # Initial radius
+# r2 = (w2 + h2) / pi if r2 is None else r2                                     # Final radius
+# x = np.linspace(x0, xf, n_points)                                             # Discretised region
+#
+# self.geometry[self.n_regions]['r'] = geom_nc(x, x0, xf, r1, r2, sigma)        # Radius
+# if w1 is None or w2 is None: self.geometry[self.n_regions]['w'] = None        # Width
+# else: self.geometry[self.n_regions]['w'] = geom_nc(x, x0, xf, w1, w2, sigma)  # Width
+# if h1 is None or h2 is None: self.geometry[self.n_regions]['h'] = None        # Height
+# else: self.geometry[self.n_regions]['h'] = geom_nc(x, x0, xf, h1, h2, sigma)  # Height
+# self.n_regions += 1
