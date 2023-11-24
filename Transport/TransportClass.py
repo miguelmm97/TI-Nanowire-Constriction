@@ -3,7 +3,7 @@ from numpy import pi
 from numpy.linalg import inv
 from scipy.linalg import expm
 import numpy as np
-from numpy.fft import ifftshift, ifft, fftshift, ifft2
+from numpy.fft import ifftshift, ifft, fftshift, ifft2, fft2
 import numba as nb
 from numba import njit  # "nopython just in time (compiler)"
 
@@ -398,24 +398,64 @@ def get_fileID(file_list):
             expID = max(ID, expID)
     return expID + 1
 
+def code_testing(L, Nx, Ntheta, dis_strength, corr_length, vf, check=0):
+
+    # Simple check: No potential in 1d
+    if check == 0:
+        V_fft = np.zeros((Nx,))
+        V_real = V_fft
+
+    # Simple check: Constant potential in 1d
+    if check == 1:
+        V_fft = 10 * np.ones((Nx,))
+        V_real = V_fft
+
+    # Simple check: Constant potential in 2d
+    elif check == 2:
+        V_real = 10 * np.ones((Ntheta, Nx))
+        V_1 = fft2(V_real) * np.sqrt(L * 2 * pi * 20) / (Nx * Ntheta)
+        V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * 20))
+
+
+    # Simple check: V periodic function of theta
+    elif check == 3:
+        V_real = np.zeros((Ntheta, Nx))
+        theta_sample = np.linspace(0, 2 * pi, Ntheta, endpoint=False)
+        for i in range(Nx): V_real[:, i] = np.sin(theta_sample)
+        V_1 = fft2(V_real) * np.sqrt(L * 2 * pi * 20) / (Nx * Ntheta)
+        V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * 20))
+
+
+    # Simple check: Comparison 1d vs 2d with the same gaussian correlated potential
+    elif check == 4:
+        V_real = gaussian_correlated_potential_1D_FFT(L, Nx, dis_strength, corr_length, vf);
+        V_fft = V_real
+        V_real2 = np.zeros((Ntheta, Nx))
+        for i in range(Nx): V_real2[:, i] = np.ones((Ntheta,)) * V_real[i]
+        V_1 = fft2(V_real2) * np.sqrt(L * 2 * pi * 20) / (Nx * Ntheta)
+        V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * 20))
+
+    return V_fft, V_real
+
 
 @dataclass
 class transport:
     """ Transport calculations on 3dTI nanostructures based on their effective surface theory."""
 
-    vf: float       # Fermi velocity in meV nm
-    B_perp: float   # Magnetic field perpendicular to the axis of the nanostructure
-    B_par: float    # Magnetic field parallel to the axis of the nanostructure
-    l_cutoff: int   # Cutoff in the number of angular momentum modes
-    geometry = {}
-    n_regions = 0
-    modes: np.ndarray = field(default_factory=np.arange)
-    Nmodes = len(modes)
-    S_tot = None
-    T_tot = None
+    vf:         float       # Fermi velocity in meV nm
+    B_perp:     float       # Magnetic field perpendicular to the axis of the nanostructure
+    B_par:      float       # Magnetic field parallel to the axis of the nanostructure
+    l_cutoff:   int         # Cutoff in the number of angular momentum modes
+    geometry    = {}
+    n_regions   = 0
+    S_tot       = None
+    T_tot       = None
+    Nmodes:     int = field(init=False)
+    modes:      np.ndarray = field(init=False)
 
     def __post_init__(self):
         self.modes = np.arange(-self.l_cutoff, self.l_cutoff + 1)
+        self.Nmodes = len(self.modes)
 
     # Methods for creating the geometry of the transport region
 
@@ -441,7 +481,7 @@ class transport:
         if r is None and (w is None or h is None): raise ValueError('Need to specify r or (w, h)')
 
         self.geometry[self.n_regions] = {
-            'type': 'nw',
+            'region_type': 'nw',
             'x0': x0,
             'xf': xf,
             'n_points': n_points,
@@ -486,7 +526,7 @@ class transport:
         x = np.linspace(x0, xf, n_points)
 
         self.geometry[self.n_regions] = {
-            'type': 'nw',
+            'region_type': 'nw',
             'x0': x0,
             'xf': xf,
             'dx': abs(xf - x0) / n_points,
@@ -586,12 +626,12 @@ class transport:
                 except TypeError:
                     w = None; h = None
 
-                M = M_EV(self.modes, dx, dr, E, self.vf, V) + M_theta(self.modes, dx, r[j], dr, w=w, h=h,
-                                                                      B_par=self.B_par) + \
+                M = M_EV(self.modes, dx, dr, E, self.vf, V) + M_theta(self.modes, dx, r[j], dr, w=w, h=h, B_par=self.B_par) + \
                     M_Ax(self.modes, dx, w, h, B_perp=self.B_perp)
-                dT = expm(-M) if backwards else expm(M)
+                if backwards: M = -M
+                dT = expm(M)
                 dS = transfer_to_scattering(dT)
-                T = dT if (T is None and j == 0) else T = dT @ T
+                T = dT if (T is None and j == 0) else dT @ T
                 S = dS if (S is None and j == 0) else scat_product(dS, S)
 
         return S, T
@@ -744,72 +784,3 @@ class transport:
 
 
 
-
-
-
-#     for i in range(0, self.n_regions):
-#         if self.geometry[i]['type'] == 'nw':
-#             M = M_EV(self.modes, self.geometry[i]['dx'], 0, E, self.vf, self.geometry[i]['V'])
-#             M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'], 0, self.geometry[i]['w'], self.geometry[i]['h'], B_par=self.B_par)
-#             M += M_Ax(self.modes, self.geometry[i]['dx'], self.geometry[i]['w'], self.geometry[i]['h'], B_perp=self.B_perp)
-#
-#             if self.geometry[i]['n_points'] is None:
-#                 T = expm(M * (self.geometry[i]['xf'] - self.geometry[i]['x0']) / self.geometry[i]['dx'])
-#                 S = transfer_to_scattering(T) if i == 0 else scat_product(S, transfer_to_scattering(T))
-#                 if np.isnan(S).any(): raise OverflowError('Length to long to calculate the scattering matrix directly. Need for discretisation!')
-#                 if save_ST: self.S = S; self.T = T
-#
-#
-#             else:
-#                 dT = expm(M)
-#                 dS = transfer_to_scattering(dT)
-#                 for j in range(self.geometry[i]['n_points']):
-#                     S = dS if (i == 0 and j == 0) else scat_product(S, dS)
-#         else:
-#             for j in range(self.geometry[i]['n_points'] - 1):
-#                 dr = self.geometry[i]['r'][j + 1] - self.geometry[i]['r'][j]
-#                 try:
-#                     w = self.geometry[i]['w'][j]; h = self.geometry[i]['h'][j];
-#                 except TypeError:
-#                     w = None; h = None
-#                 M = M_EV(self.modes, self.geometry[i]['dx'], dr, E, self.vf, self.geometry[i]['V'])
-#                 M += M_theta(self.modes, self.geometry[i]['dx'], self.geometry[i]['r'][j], dr, w=w, h=h, B_par=self.B_par)
-#                 M += M_Ax(self.modes, self.geometry[i]['dx'], w, h, B_perp=self.B_perp)
-#                 dT = expm(M)
-#                 dS = transfer_to_scattering(dT)
-#                 S = dS if (i == 0 and j == 0) else scat_product(dS, S)
-
-
-# self.geometry[self.n_regions] = {}                                     # Add new region to the geometry
-# self.geometry[self.n_regions]['type'] = 'nw'                           # Type of region
-# self.geometry[self.n_regions]['x0'] = x0                               # Initial point
-# self.geometry[self.n_regions]['xf'] = xf                               # Final point
-# if n_points is None: self.geometry[self.n_regions]['dx'] = 100         # X increment
-# else: self.geometry[self.n_regions]['dx'] = abs(xf - x0) / n_points    # X increment
-# self.geometry[self.n_regions]['n_points'] = n_points                   # Number of points in the discretisation
-# self.geometry[self.n_regions]['V'] = Vnm                               # External potential
-#
-# self.geometry[self.n_regions]['r'] = (w + h) / pi if r is None else r  # Radius
-# self.geometry[self.n_regions]['w'] = w                                 # Width
-# self.geometry[self.n_regions]['h'] = h                                 # Height
-# self.n_regions += 1                                                    # Add new region to the geometry
-
-
-# self.geometry[self.n_regions] = {}                                            # Add new region to the geometry
-# self.geometry[self.n_regions]['type'] = 'nc'                                  # Type of region
-# self.geometry[self.n_regions]['x0'] = x0                                      # Initial point
-# self.geometry[self.n_regions]['xf'] = xf                                      # Final point
-# self.geometry[self.n_regions]['dx'] = abs(xf - x0)/n_points                   # X increment
-# self.geometry[self.n_regions]['n_points'] = n_points                          # Number of points in the discretisation
-# self.geometry[self.n_regions]['V'] = Vnm                                      # External potential
-#
-# r1 = (w1 + h1) / pi if r1 is None else r1                                     # Initial radius
-# r2 = (w2 + h2) / pi if r2 is None else r2                                     # Final radius
-# x = np.linspace(x0, xf, n_points)                                             # Discretised region
-#
-# self.geometry[self.n_regions]['r'] = geom_nc(x, x0, xf, r1, r2, sigma)        # Radius
-# if w1 is None or w2 is None: self.geometry[self.n_regions]['w'] = None        # Width
-# else: self.geometry[self.n_regions]['w'] = geom_nc(x, x0, xf, w1, w2, sigma)  # Width
-# if h1 is None or h2 is None: self.geometry[self.n_regions]['h'] = None        # Height
-# else: self.geometry[self.n_regions]['h'] = geom_nc(x, x0, xf, h1, h2, sigma)  # Height
-# self.n_regions += 1
