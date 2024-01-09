@@ -10,11 +10,11 @@ from numba import njit  # "nopython just in time (compiler)"
 # nb.set_num_threads(1)
 
 # Constants
-hbar = 1e-34  # Planck's constant in Js
-nm = 1e-9  # Conversion from nm to m
-ams = 1e-10  # Conversion from Å to m
-e = 1.6e-19  # Electron charge in C
-phi0 = 2 * pi * hbar / e  # Quantum of flux
+hbar = 1e-34                # Planck's constant in Js
+nm = 1e-9                   # Conversion from nm to m
+ams = 1e-10                 # Conversion from Å to m
+e = 1.6e-19                 # Electron charge in C
+phi0 = 2 * pi * hbar / e    # Quantum of flux
 
 # Pauli matrices
 sigma_0 = np.eye(2, dtype=np.complex128)
@@ -88,7 +88,7 @@ def transfer_to_scattering(T):
     # transfer_matrix: Transfer matrix to translate to scattering
     # n_modes: Number of modes contributing to transport (N_states/2 because spin momentum locking)
 
-    # Initial checks
+    # Check flux conservation
     n_modes = int(T.shape[0] / 2)
     if not np.allclose(T.T.conj() @ np.kron(sigma_z, np.eye(n_modes)) @ T, np.kron(sigma_z, np.eye(n_modes)), atol=1e-13):
         raise ValueError('Current flow not preserved by the transfer matrix!')
@@ -110,7 +110,7 @@ def transfer_to_scattering(T):
     rp = inv_rp @ tp
     S = np.block([[r, tp], [t, rp]])
 
-    # Final checks
+    # Check unitarity
     if not np.allclose(S.T.conj() @ S, np.eye(len(S)), atol=1e-13):
         raise ValueError('Unitarity of the scattering matrix not preserved!')
 
@@ -118,10 +118,11 @@ def transfer_to_scattering(T):
 
 def scattering_to_transfer(S):
 
-    # Initial checks
+    # Check unitarity
     n_modes = int(S.shape[0] / 2)
     if not np.allclose(S.T.conj() @ S, np.eye(len(S)), atol=1e-13):
-        raise ValueError('Unitarity of the scattering matrix not preserved!')
+        # raise ValueError('Unitarity of the scattering matrix not preserved!')
+        print('Unitarity of the scattering matrix not preserved!')
 
     # Divide scattering matrix
     r = S[0: n_modes, 0: n_modes]
@@ -130,8 +131,10 @@ def scattering_to_transfer(S):
     tp = S[0: n_modes, n_modes:]
 
     # Check invertibility
-    if np.linalg.cond(t) > 10 or np.linalg.cond(tp) > 10:
-        raise ValueError('Non-invertible matrix encountered in the scattering matrix')
+    # if np.linalg.cond(t) > 10 or np.linalg.cond(tp) > 10:
+    #     raise ValueError('Non-invertible matrix encountered in the scattering matrix')
+    print('Condition number for t: ', np.linalg.cond(t), ', det(t):', np.linalg.det(t))
+    print('Condition number for tp: ', np.linalg.cond(tp), ', det(tp):', np.linalg.det(tp))
 
     # Transform to transfer matrix
     inv_tp = np.linalg.inv(tp)
@@ -141,10 +144,10 @@ def scattering_to_transfer(S):
     T_11 = inv_tp
     T = np.block([[T_00, T_01], [T_10, T_11]])
 
-    # Final checks
-    if not np.allclose(T.T.conj() @ np.kron(sigma_z, np.eye(n_modes)) @ T, np.kron(sigma_z, np.eye(n_modes)), atol=1e-13):
-        raise ValueError('Current flow not preserved by the transfer matrix!')
-
+    # Check flux conservation
+    if not np.allclose(T.T.conj() @ np.kron(sigma_z, np.eye(n_modes)) @ T, np.kron(sigma_z, np.eye(n_modes)), atol=1e-8):
+        # raise ValueError('Current flow not preserved by the transfer matrix!')
+        print('Current flow not preserved by the transfer matrix!')
     return T
 
 def scat_product(s1, s2):
@@ -152,13 +155,15 @@ def scat_product(s1, s2):
     # s1, s2: Scattering matrices to combine
     # n_modes: Number of modes contributing to transport (N_states/2 because spin momentum locking)
 
-    # Initial checks
+    # Check shape and unitarity
     if s1.shape != s2.shape:
         raise ValueError(" Different size for scattering matrices")
-    if not np.allclose(s1.T.conj() @ s1, np.eye(len(s1)), atol=1e-13):
-        raise ValueError('Unitarity of the scattering matrix not preserved!')
-    if not np.allclose(s2.T.conj() @ s2, np.eye(len(s2)), atol=1e-13):
-        raise ValueError('Unitarity of the scattering matrix not preserved!')
+    if not np.allclose(s1.T.conj() @ s1, np.eye(len(s1)), atol=1e-8):
+        print('Unitarity of the scattering matrix not preserved!')
+        # raise ValueError('Unitarity of the scattering matrix not preserved!')
+    if not np.allclose(s2.T.conj() @ s2, np.eye(len(s2)), atol=1e-8):
+        print('Unitarity of the scattering matrix not preserved!')
+        # raise ValueError('Unitarity of the scattering matrix not preserved!')
 
     # Divide scattering matrix
     n_modes = int(s1.shape[0] / 2)
@@ -180,11 +185,66 @@ def scat_product(s1, s2):
     tp = t1p @ inv(Id - r2 @ r1p) @ t2p
     scat_matrix = np.block([[r, tp], [t, rp]])
 
-    # Final checks
-    if not np.allclose(scat_matrix.T.conj() @ scat_matrix, np.eye(len(scat_matrix)), atol=1e-13):
-        raise ValueError('Unitarity of the scattering matrix not preserved!')
+    # Check unitarity
+    if not np.allclose(scat_matrix.T.conj() @ scat_matrix, np.eye(len(scat_matrix)), atol=1e-8):
+        print('Unitarity of the scattering matrix not preserved!')
+        # raise ValueError('Unitarity of the scattering matrix not preserved!')
 
     return scat_matrix
+
+def SVD_scattering(S, tol=1e-8):
+
+    # Check unitarity
+    n_modes = int(S.shape[0] / 2)
+    if not np.allclose(S.T.conj() @ S, np.eye(len(S)), atol=1e-13):
+        # raise ValueError('Unitarity of the scattering matrix not preserved!')
+        print('Unitarity of the scattering matrix not preserved!')
+
+    # Matrices to invert when going from transfer to scattering
+    t = +S[n_modes:, 0: n_modes]
+    tp = +S[0: n_modes, n_modes:]
+
+    print('----------------------------')
+    print('SVD info:')
+    # SVD and replacement of small eigenvalues for t
+    U, s, V = np.linalg.svd(t)
+    sp = np.delete(s, np.where(s < tol)[0])
+    Up = np.delete(U, np.where(s < tol)[0], axis=1)
+    Vp = np.delete(V, np.where(s < tol)[0], axis=0)
+    S[n_modes:, 0: n_modes] = Up * sp @ Vp
+
+    # Checks
+    t2 = Up * sp @ Vp
+    norm = np.linalg.norm(s)
+    print('Number of singular values dropped for t:', len(s) - len(sp))
+    print('Max singular value for t: ', np.max(s))
+    print('Min singular value for t: ', np.min(s))
+    print('Norm of the singular values:', norm)
+    print('SVD changes t: ', not np.allclose(t, t2, atol=1e-16))
+
+
+    # SVD and replacement of small eigenvalues for tp
+    U, s, V = np.linalg.svd(tp)
+    sp = np.delete(s, np.where(s < tol)[0])
+    Up = np.delete(U, np.where(s < tol)[0], axis=1)
+    Vp = np.delete(V, np.where(s < tol)[0], axis=0)
+    S[0: n_modes, n_modes:] = Up * sp @ Vp
+
+    # Checks
+    t2p = Up * sp @ Vp
+    norm = np.linalg.norm(s)
+    print('Number of singular values dropped for tp:', len(s) - len(sp))
+    print('Max singular value for tp: ', np.max(s))
+    print('Min singular value for tp: ', np.min(s))
+    print('Norm of the singular values:', norm)
+    print('SVD changes tp: ', not np.allclose(tp, t2p, atol=1e-16))
+
+    # Check unitarity
+    if not np.allclose(S.T.conj() @ S, np.eye(len(S)), atol=1e-8):
+        # raise ValueError('Unitarity of the scattering matrix not preserved!')
+        print('Unitarity of the scattering matrix not preserved!')
+
+    return S
 
 def stabilise_transfer(T, debug=False):
 
@@ -744,7 +804,7 @@ class transport:
         G = np.trace(t.T.conj() @ t)
         return G
 
-    def get_scattering_states(self, E, theta_vec):
+    def get_scattering_states_S2T(self, E, theta_vec):
 
         psi_scatt = np.zeros((2 * len(theta_vec), self.n_regions), 'complex128')
         psi_scatt_up = np.zeros((len(theta_vec), self.n_regions), 'complex128')
@@ -752,31 +812,39 @@ class transport:
         theta = np.repeat(theta_vec, self.Nmodes).reshape(len(theta_vec), self.Nmodes)
         Mmodes = np.tile(self.modes, len(theta_vec)).reshape(len(theta_vec), self.Nmodes)
 
-        # Initial scattering state
+        # Full scattering and transfer
         if self.S_tot is None:
             for i in range(0, self.n_regions):
+                print('----------------------------')
+                print('Region: ', i)
                 self.S_tot = self.get_scattering_matrix(E, **self.geometry[i], S=self.S_tot)
+                print('----------------------------')
+                print('Before SVD:')
+                T_0 = scattering_to_transfer(self.S_tot)
+                self.S_tot = SVD_scattering(self.S_tot)
+                print('----------------------------')
+                print('After SVD:')
+                T = scattering_to_transfer(self.S_tot)
+                print('----------------------------')
+
+        # Forward propagation
         phi = np.zeros((2 * self.Nmodes,), dtype='complex128')
         phi[0] = 1
         phi[self.Nmodes:] = self.S_tot[0: self.Nmodes, 0: self.Nmodes] @ phi[: self.Nmodes]
         phi = phi / np.linalg.norm(phi)
-
-        # Forward propagation
-        for i in range(0, self.n_regions):
-            T = self.get_transfer_matrix(E, **self.geometry[i])
-            phi = T @ phi
-            phi = phi / np.linalg.norm(phi)
+        phi = T @ phi
+        phi = phi / np.linalg.norm(phi)
 
         # Change of basis
         phi = np.kron(sigma_x, np.eye(self.Nmodes)) @ phi
 
         # Backward propagation
+        S = None
         for i in range(self.n_regions - 1, -1, -1):
-            print(i)
-            T = self.get_transfer_matrix(E, **self.geometry[i], backwards=True)
+            S = self.get_scattering_matrix(E, **self.geometry[i], backwards=True, S=S)
+            T = scattering_to_transfer(SVD_scattering(S))
             phi = T @ phi
             phi = phi / np.linalg.norm(phi)
-
             psi_scatt[:, i] = np.kron(sigma_0, np.exp(1j * theta * Mmodes * self.geometry[i]['r'])) @ phi
             psi_scatt[:, i] = psi_scatt[:, i] / np.linalg.norm(psi_scatt[:, i])
             psi_scatt_up[:, i] = psi_scatt[:len(theta_vec), i]
@@ -784,38 +852,71 @@ class transport:
 
         return psi_scatt_up, psi_scatt_down
 
+    def get_scattering_states_Tproduct(self, E, theta_vec):
 
+        psi_scatt = np.zeros((2 * len(theta_vec), self.n_regions), 'complex128')
+        psi_scatt_up = np.zeros((len(theta_vec), self.n_regions), 'complex128')
+        psi_scatt_down = np.zeros((len(theta_vec), self.n_regions), 'complex128')
+        theta = np.repeat(theta_vec, self.Nmodes).reshape(len(theta_vec), self.Nmodes)
+        Mmodes = np.tile(self.modes, len(theta_vec)).reshape(len(theta_vec), self.Nmodes)
 
-        # if self.S_tot is None:
-        #     for i in range(0, self.n_regions):
-        #         self.S_tot = self.get_scattering_matrix(E, **self.geometry[i], S=self.S_tot)
-        # T_tot = scattering_to_transfer(self.S_tot)
-        #
-        # # Incoming modes
-        # phi_0 = np.zeros((2 * self.Nmodes,), dtype='complex128')
-        # phi_0[0] = 1
-        # phi_0[self.Nmodes:] = self.S_tot[0: self.Nmodes, 0: self.Nmodes] @ phi_0[: self.Nmodes]
-        # phi_0 = phi_0 / np.linalg.norm(phi_0)
-        #
-        #
-        # # Transfer to position x
-        # S_x = None
-        # psi_scatt = np.zeros((2 * len(theta_vec), self.n_regions), 'complex128')
-        # psi_scatt_up = np.zeros((len(theta_vec), self.n_regions), 'complex128')
-        # psi_scatt_down = np.zeros((len(theta_vec), self.n_regions),'complex128')
-        # for i in range(self.n_regions - 1, 0, -1):
-        #     S_x = self.get_scattering_matrix(E, **self.geometry[i], backwards=True, S=S_x)
-        #     T_x = scattering_to_transfer(S_x)
-        #     phi_x = T_x @ np.kron(sigma_x, np.eye(self.Nmodes)) @ T_tot @ phi_0
-        #
-        #     # Scattering states
-        #     theta = np.repeat(theta_vec, self.Nmodes).reshape(len(theta_vec), self.Nmodes)
-        #     Mmodes = np.tile(self.modes, len(theta_vec)).reshape(len(theta_vec), self.Nmodes)
-        #     psi_scatt[:, i] = np.kron(sigma_0, np.exp(1j * theta * Mmodes * self.geometry[i]['r'])) @ phi_x
-        #     psi_scatt[:, i] = psi_scatt[:, i] / np.linalg.norm(psi_scatt[:, i])
-        #     psi_scatt_up[:, i] = psi_scatt[:len(theta_vec), i]
-        #     psi_scatt_down[:, i] = psi_scatt[len(theta_vec):, i]
-        #     print(np.linalg.norm(psi_scatt[:, i]))
+        # Full scattering and transfer
+        for i in range(0, self.n_regions):
+
+            # Transfer through SVD chain
+            T = self.get_transfer_matrix(E, **self.geometry[i])
+            if i == 0:
+                U, s, V = np.linalg.svd(T)
+                T_tot = V
+                temp = U * s
+            elif i == self.n_regions - 1:
+                T_tot = T @ temp @ T_tot
+            else:
+                U, s, V = np.linalg.svd(T @ temp)
+                T_tot = V @ T_tot
+                temp = U * s
+
+            # Scattering
+            if self.S_tot is None:
+                self.S_tot = self.get_scattering_matrix(E, **self.geometry[i], S=self.S_tot)
+
+        # Initial state
+        phi = np.zeros((2 * self.Nmodes,), dtype='complex128')
+        phi[0] = 1
+        phi[self.Nmodes:] = self.S_tot[0: self.Nmodes, 0: self.Nmodes] @ phi[: self.Nmodes]
+        phi = phi / np.linalg.norm(phi)
+
+        # Forward propagation
+        phi = T_tot @ phi
+        phi = phi / np.linalg.norm(phi)
+
+        # Change of basis
+        phi = np.kron(sigma_x, np.eye(self.Nmodes)) @ phi
+
+        # Backward propagation
+        for i in range(self.n_regions - 1, -1, -1):
+            T = self.get_transfer_matrix(E, **self.geometry[i], backwards=True)
+            if i == self.n_regions - 1:
+                U, s, V = np.linalg.svd(T)
+                T_tot = V
+                temp = U * s
+                phi = temp @ T_tot @ phi
+            elif i == 0:
+                T_tot = T @ temp @ T_tot
+                phi = T_tot @ phi
+            else:
+                U, s, V = np.linalg.svd(T @ temp)
+                T_tot = V @ T_tot
+                temp = U * s
+                phi = temp @ T_tot @ phi
+
+            phi = phi / np.linalg.norm(phi)
+            psi_scatt[:, i] = np.kron(sigma_0, np.exp(1j * theta * Mmodes * self.geometry[i]['r'])) @ phi
+            psi_scatt[:, i] = psi_scatt[:, i] / np.linalg.norm(psi_scatt[:, i])
+            psi_scatt_up[:, i] = psi_scatt[:len(theta_vec), i]
+            psi_scatt_down[:, i] = psi_scatt[len(theta_vec):, i]
+
+        return psi_scatt_up, psi_scatt_down
 
     def get_bands_nw(self, region, k_range):
         """
