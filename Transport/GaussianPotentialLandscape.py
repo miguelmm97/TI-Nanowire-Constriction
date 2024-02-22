@@ -8,8 +8,36 @@ import h5py
 import os
 import sys
 from datetime import date
+import logging
+import colorlog
+from colorlog import ColoredFormatter
 from TransportClass import transport, gaussian_correlated_potential_1D_FFT, gaussian_correlated_potential_2D_FFT, \
-      get_fileID, code_testing, transport_mode, check_imaginary
+      get_fileID, code_testing, check_imaginary
+
+
+#%% Logging setup
+logger_main = logging.getLogger('main')
+logger_main.setLevel(logging.INFO)
+
+stream_handler = colorlog.StreamHandler()
+formatter = ColoredFormatter(
+    '%(black)s%(asctime) -5s| %(blue)s%(name) -10s %(black)s| %(cyan)s %(funcName) -40s %(black)s|''%(log_color)s%(levelname) -10s | %(message)s',
+    datefmt=None,
+    reset=True,
+    log_colors={
+        'TRACE': 'black',
+        'DEBUG': 'purple',
+        'INFO': 'green',
+        'WARNING': 'yellow',
+        'ERROR': 'red',
+        'CRITICAL': 'red,bg_white',
+    },
+    secondary_log_colors={},
+    style='%'
+)
+stream_handler.setFormatter(formatter)
+logger_main.addHandler(stream_handler)
+
 
 start_time = time.time()
 #%% Parameters
@@ -32,9 +60,9 @@ N_samples               = 1                                                     
 fermi                   = np.linspace(-200, 200, 1000)                                      # Fermi energy sample
 E_resonance_index       = 850                                                               # Energy to calculate scatt. states
 transmission_eigenval   = 15                                                                # Transmission mode we pick for to show
-load_file               = 'Experiment90.h5'                                                 # File from which to load the data
+load_file               = None #'Experiment90.h5'                                                 # File from which to load the data
 save_data               = False                                                             # Flag for saving data
-calculate_transport     = False                                                             # Flag for calculating the transport
+calculate_transport     = True                                                             # Flag for calculating the transport
 
 
 # Initialise variables
@@ -54,6 +82,7 @@ T                    = None
 # Loading possible data
 outdir = "Data"
 if load_file is not None:
+    logger_main.info('Loading data...')
     for file in os.listdir(outdir):
         if file == load_file:
             file_path = os.path.join(outdir, file)
@@ -67,10 +96,11 @@ if load_file is not None:
 
 # Transport calculation
 if calculate_transport:
+    logger_main.info('Performing transport calculation...')
     for n in range(N_samples):
 
         # Load/create potential landscape
-        print('Generating potential...')
+        logger_main.trace('Generating potential...')
         if load_file is not None:
             V_fft, V_real = V_fft_load[n, :, :], V_real_load[n, :, :]
         elif Ntheta_fft == 1:
@@ -81,24 +111,24 @@ if calculate_transport:
         # V_fft, V_real = code_testing(L, Nx, Ntheta_grid, dis_strength, corr_length, vf, check=0)
 
         # Create geometry
-        print('Creating model...')
+        logger_main.trace(' Creating model...')
         model_gauss = transport(vf=vf, L=L, rad=r, B_perp=B_perp, B_par=B_par, l_cutoff=l_cutoff)
         model_gauss.build_geometry(np.repeat(r, x.shape[0]), x, V_fft)
 
         # Conductance calculation
-        print('Calculating conductance:')
+        logger_main.trace('Calculating conductance:')
         for j, E in enumerate(fermi):
             start_iter = time.time()
             G[n, j] = model_gauss.get_Landauer_conductance(E, debug=True)
-            print('------iter sample: {}/{} | iter transport: {}/{} | iter time: {:.3e} s | Fermi level: {:.3f} | Conductance: {:.2f}'.format
-                         (n, N_samples - 1, j, fermi.shape[0] - 1, time.time() - start_iter, E, G[n, j]))
+            logger_main.info('iter sample: {}/{} | iter transport: {}/{} | iter time: {:.3e} s | Fermi level: {:.3f} | Conductance: {:.2f}'.format
+                        (n, N_samples - 1, j, fermi.shape[0] - 1, time.time() - start_iter, E, G[n, j]))
 
         # Store each disorder realisation
         V_fft_storage[n, :, :] = V_fft
         V_real_storage[n, :, :] = V_real
 
     # Scattering states and transmission eigenvalues at the resonant energies
-    print('Calculating scattering states...')
+    logger_main.info('Calculating scattering states...')
     trans_eigenvalues = model_gauss.get_transmission_eigenvalues(fermi[E_resonance_index])[0]
     scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states_back_forth_method(fermi[E_resonance_index], theta, debug=False)
     scatt_density_up[0, :, :] = np.real(scatt_states_up[0, :, :] * scatt_states_up[0, :, :].conj())
@@ -108,21 +138,20 @@ if calculate_transport:
 else:
 
     # Load data
-    print('Loading data...')
     G = G_load
     V_fft, V_real = V_fft_load[0, :, :], V_real_load[0, :, :]
     V_real_storage, V_fft_storage = V_real_load, V_fft_load
 
     # Create instance of the transport class
-    print('Creating model...')
+    logger_main.trace('Creating model...')
     model_gauss = transport(vf=vf, L=L, rad=r, B_perp=B_perp, B_par=B_par, l_cutoff=l_cutoff)
     model_gauss.build_geometry(np.repeat(r, x.shape[0]), x, V_fft)
 
     # Scattering states and transmission eigenvalues at the resonant energies
-    print('Calculating scattering states...')
+    logger_main.info('Calculating scattering states...')
     trans_eigenvalues = model_gauss.get_transmission_eigenvalues(fermi[E_resonance_index])[0]
     scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states_back_forth_method(fermi[E_resonance_index],
-                                                                                theta, initial_state=transmission_eigenval, debug=True)
+                                                                                theta, initial_state=transmission_eigenval, debug=False)
     scatt_density_up[0, :, :] = np.real(scatt_states_up[0, :, :] * scatt_states_up[0, :, :].conj())
     scatt_density_down[0, :, :] = np.real(scatt_states_down[0, :, :] * scatt_states_down[0, :, :].conj())
 
@@ -139,6 +168,7 @@ expID = get_fileID(file_list)
 filename ='{}{}{}'.format('Experiment', expID, '.h5')
 filepath = os.path.join('Data', filename)
 if save_data:
+    logger_main.info('Storing data...')
     with h5py.File(filepath, 'w') as f:
         f.create_dataset("Conductance",                       data=G)
         f.create_dataset("Potential_FFT",                     data=V_fft_storage)
