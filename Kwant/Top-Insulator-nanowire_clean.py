@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from numpy import pi
 import scipy.sparse.linalg as sla
 import tinyarray
+from Functions import geom_cons, get_bands
 
 """
 We build a kwant model for a topological insulator nanowire in the simplest case, that is no variation on the radius,
@@ -38,22 +39,6 @@ syst = kwant.Builder()
 lat = kwant.lattice.square(a)
 
 # Chemical potential
-def step(x1, x2, sigma=None):
-    # Smoothened step function theta(x1-x2)
-    if sigma is None:
-        return np.heaviside(x1 - x2, 1)
-    else:
-        return 0.5 + (1 / pi) * np.arctan(sigma * (x1 - x2))
-def geom_nc(x, x1, x2, r1, r2, sigma=None):
-    # x1, r1: Initial widest part
-    # x2, r2: Final narrow part
-    return r1 + (r2 - r1) * step(x, x2, sigma) + ((r2 - r1) / (x2 - x1)) * (x - x1) * (
-            step(x, x1, sigma) - step(x, x2, sigma))
-def geom_cons(x, x1, x2, x3, r1, r2, sigma):
-    # x1, r1: Initial lead
-    # x2, r2: Constriction
-    # x3: Start of the second cone
-    return geom_nc(x, x1, x2, r1, r2, sigma) + geom_nc(-x + x2 + x3, x1, x2, r1, r2, sigma) - r2
 mu = geom_cons(np.arange(0, 100), 0, 20, 80, mu_leads, 0, sigma=0.1)
 
 # Scattering region
@@ -115,7 +100,7 @@ temp2 = [temp1(k) for k in momenta]
 energy_bands = np.zeros((width * 2, 101))
 for i, E in enumerate(temp2): energy_bands[:, i] = E
 
-
+k_exact, E_exact =  get_bands(width * a, 0, 0, vf)
 #%% Figures
 
 # System
@@ -135,7 +120,10 @@ ax1.set_title('Conductance vs Fermi level')
 # Bands
 fig2, ax2 = plt.subplots(figsize=(8, 6))
 for i in range(energy_bands.shape[0] - 1):
-    ax2.plot(momenta, energy_bands[i, :] * unit_E, color='#00BFFF')
+    if i == 0: label1, label2 = 'TB approx.', 'Surface theory'
+    else: label1, label2 = None, None
+    ax2.plot(momenta, energy_bands[i, :] * unit_E, color='#00BFFF', label=label1)
+    ax2.plot(k_exact, E_exact[i, :], color='#3F6CFF', label=label2)
 ax2.plot(momenta, -mu_leads * np.ones(momenta.shape), '--', color='#9A32CD', alpha=0.5)
 ax2.set_xlabel("$k$ [$a$]")
 ax2.set_ylabel("$E$ [eV]")
@@ -143,6 +131,9 @@ ax2.set_xlim(-np.pi, np.pi)
 ax2.set_ylim(0, 3 * unit_E)
 ax2.set_title('Band structure')
 ax2.text(-3, -mu_leads + 0.3, '$\mu_{\\text{leads}}$', fontsize=20, color='#A9A9A9', alpha=0.5)
+ax2.legend(loc='best', ncol=1, fontsize=15)
+
+
 
 
 # Chemical potential

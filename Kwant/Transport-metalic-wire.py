@@ -7,7 +7,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy import pi
 import scipy.sparse.linalg as sla
-import 
 
 
 #%% Parameters and set up of the system

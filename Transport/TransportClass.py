@@ -38,7 +38,8 @@ logger_transport.setLevel(logging.INFO)
 
 stream_handler = colorlog.StreamHandler()
 formatter = ColoredFormatter(
-    '%(black)s%(asctime) -5s| %(blue)s%(name) -10s %(black)s| %(cyan)s %(funcName) -40s %(black)s|''%(log_color)s%(levelname) -10s | %(message)s',
+    '%(black)s%(asctime) -5s| %(blue)s%(name) -10s %(black)s| %(cyan)s %(funcName) '
+    '-40s %(black)s|''%(log_color)s%(levelname) -10s | %(message)s',
     datefmt=None,
     reset=True,
     log_colors={
@@ -58,10 +59,10 @@ logger_transport.addHandler(stream_handler)
 #%% Module
 
 # Constants
-hbar = 1e-34  # Planck's constant in Js
-nm = 1e-9  # Conversion from nm to m
-ams = 1e-10  # Conversion from Å to m
-e = 1.6e-19  # Electron charge in C
+hbar = 1e-34              # Planck's constant in Js
+nm = 1e-9                 # Conversion from nm to m
+ams = 1e-10               # Conversion from Å to m
+e = 1.6e-19               # Electron charge in C
 phi0 = 2 * pi * hbar / e  # Quantum of flux
 
 # Pauli matrices
@@ -433,11 +434,11 @@ def check_imaginary(array):
 class transport:
     """ Transport calculations on 3dTI nanostructures based on their effective surface theory."""
 
-    L: float  # Total length of the nanowire in nm
-    rad: float  # Radius of the nanowire (only meaningful if constant radius)
-    vf: float  # Fermi velocity in meV nm
+    L: float       # Total length of the nanowire in nm
+    rad: float     # Radius of the nanowire (only meaningful if constant radius)
+    vf: float      # Fermi velocity in meV nm
     B_perp: float  # Magnetic field perpendicular to the axis of the nanostructure
-    B_par: float  # Magnetic field parallel to the axis of the nanostructure
+    n_flux: float  # Magnetic field parallel to the axis of the nanostructure
     l_cutoff: int  # Cutoff in the number of angular momentum modes
     geometry = {}
     n_regions = 0
@@ -448,6 +449,7 @@ class transport:
     def __post_init__(self):
         self.modes = np.arange(-self.l_cutoff, self.l_cutoff + 1)
         self.Nmodes = len(self.modes)
+        self.B_par = self.n_flux * phi0
 
     # Methods for creating the geometry of the transport region
     def add_nw(self, x0, xf, Vnm=None, n_points=None, r=None, w=None, h=None):
