@@ -261,7 +261,48 @@ def transport_mode(x, theta, r, n, E, vf, spin='up', lead=True):
         return norm * transverse_part
 
 
-# Gaussian correlated potential
+# Different types of potentials
+def potential_well_1D(L, Nx, V0, V_well, L0, L_well):
+
+    size_walls = int(Nx * (L0 / L))
+    size_well = int(Nx * (L_well / L))
+
+    V_wall1 = V0 * np.ones((size_walls, ))
+    V_well = V_well * np.ones((size_well, ))
+    V_wall2 = V0 * np.ones((Nx - size_walls - size_well, ))
+    V = np.concatenate((V_wall1, V_well, V_wall2))
+    return V
+
+
+def potential_well_1D_smooth(x, L_walls, L_transition, L_well, V_walls, V_well, smoothing_factor=0):
+
+
+    if 2 * L_walls + 2 * L_transition + L_well != x[-1]:
+        raise ValueError('Total length mus amount to the length of the wire!')
+
+    L1 = L_walls
+    L2 = L_walls + L_transition
+    L3 = L2 + L_well
+    V = geom_cons(x, L1, L2, L3, V_walls, V_well, smoothing_factor)
+    return V
+
+
+def potential_barrier(x, V1, V2, L0, smoothing=None):
+    return V2 * step(x, L0, smoothing=smoothing) + V1
+
+
+def sin_potential(x, amplitude, period, phase=0, offset=0):
+    return amplitude * np.sin(2 * pi * x / period + phase) + offset
+
+
+def sin_potential_2D(theta, Nx, L, r, amplitude, period, phase=0, offset=0):
+    V_real = amplitude * np.repeat(np.sin(2 * pi * theta / period + phase), Nx).reshape(len(theta), Nx) \
+                                                                  + np.ones((len(theta), Nx)) * offset
+    V_1 = fft2(V_real) * np.sqrt(L * 2 * pi * r) / (Nx * len(theta))
+    V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * r))
+    return V_real, V_fft
+
+
 def gaussian_correlated_potential_1D_FFT(L, Nx, strength, xi, vf):
     """
     Generates a sample of a gaussian correlated potential V(x) with strength,
@@ -372,6 +413,14 @@ def gaussian_correlated_potential_2D_FFT(L, r, Nx, Ny, strength, xi, vf):
 
     # return V_iFFTx * (2 * pi * np.sqrt(r) / Ny), Vgauss
     return V_iFFTx * (1 / np.sqrt(2 * pi * r)), Vgauss
+
+def constant_2D_potential(Nx, Ntheta, V, L, r):
+    V_real = V * np.ones((Ntheta, Nx))
+    V_1 = fft2(V_real) * np.sqrt(L * 2 * pi * r) / (Nx * Ntheta)
+    V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * r))
+    return V_real, V_fft
+
+
 
 
 # Code work
@@ -607,7 +656,7 @@ class transport:
 
         S = None
         for i in range(0, self.n_regions):
-            S = self.get_scattering_matrix(E, **self.geometry[i])
+            S = self.get_scattering_matrix(E, **self.geometry[i], S=S)
 
         if debug:
             if np.abs(E) < 1 and self.L < 150:
