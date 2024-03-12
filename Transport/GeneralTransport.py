@@ -19,7 +19,6 @@ import time
 from datetime import date
 
 
-#fjhdih
 # Managing logging
 import logging
 import colorlog
