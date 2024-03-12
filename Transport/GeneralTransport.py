@@ -18,7 +18,7 @@ import config
 import time
 from datetime import date
 
-#hfjgjfjf
+
 # Managing logging
 import logging
 import colorlog
