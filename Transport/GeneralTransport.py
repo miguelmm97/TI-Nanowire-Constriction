@@ -58,12 +58,12 @@ for key in variables:
 
 
 x                     = np.linspace(0, L, Nx)                                             # Discretised position
-Ntheta_grid           = Ntheta_fft if dimension=='2d' else 1                              # Grid for theta
+Ntheta_grid           = Ntheta_fft if dimension=='2d' else 1                                    # Grid for theta
 Ntheta_plot           = Ntheta_fft if dimension=='2d' else default_Ntheta_plot
-theta                 = np.linspace(0, 2 * pi, Ntheta_plot)                               # Discretised angles
-fermi                 = np.linspace(fermi_0, fermi_end, fermi_length)                     # Fermi energy sample
-G                     = np.zeros((N_samples, fermi.shape[0]))                             # Conductance storage
-V_real_storage        = np.zeros((N_samples, Ntheta_grid, Nx))                            # Vxy storage
+theta                 = np.linspace(0, 2 * pi, Ntheta_plot)                                # Discretised angles
+fermi                 = np.linspace(fermi_0, fermi_end, fermi_length)                            # Fermi energy sample
+G                     = np.zeros((N_samples, fermi.shape[0]))                                    # Conductance storage
+V_real_storage        = np.zeros((N_samples, Ntheta_grid, Nx))                                   # Vxy storage
 V_fft_storage         = np.zeros((N_samples, Ntheta_grid, Nx), dtype=np.complex128)       # Vfft storage
 scatt_states_up       = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.complex128)   # Scattering states storage
 scatt_density_up      = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.complex128)   # Scattering states storage

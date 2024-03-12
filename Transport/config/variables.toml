@@ -31,10 +31,10 @@ transmission_eigenval     = 0                  # Index of the transmitted eigenm
 
 
 [flags]
-load_data                 = true              # File from which to load data. If false no data is loaded
-save_data                 = false               # If true saves data in an automatically generated file 'ExperimentNUM.h5'
+load_data                 = false            # File from which to load data. If false no data is loaded
+save_data                 = true               # If true saves data in an automatically generated file 'ExperimentNUM.h5'
 load_file                 = 'Experiment127.h5' # File to load if load_data is true
-calculate_transport       = false               # If true calculates the conductance of the nanostructure
+calculate_transport       = true               # If true calculates the conductance of the nanostructure
 dimension                 = '1d'               # If 1d sets Ntheta_fft to 1 but keeps a default value to plot
 
 
