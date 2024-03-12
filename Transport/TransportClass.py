@@ -9,6 +9,7 @@ import logging
 import colorlog
 from colorlog import ColoredFormatter
 
+
 #%% Logging setup
 def addLoggingLevel(levelName, levelNum, methodName=None):
     if not methodName:

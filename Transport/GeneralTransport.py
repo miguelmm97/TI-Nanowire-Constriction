@@ -14,8 +14,6 @@ import os
 import sys
 import config
 
-#hey how are you my friend
-
 # Tracking time
 import time
 from datetime import date
