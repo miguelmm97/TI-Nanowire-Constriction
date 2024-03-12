@@ -71,7 +71,7 @@ scatt_density_down    = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.comp
 
 L_lead, L_trans, L_well = L / 5, L/5, L/5
 gap = vf / (2 * r)
-V0, V1 = 20, -20   #20 - 2 * gap
+V0, V1 = 20, -20  #20 - 2 * gap
 amplitude, period = 30, L / 3
 # %% Transport Calculation
 start_time = time.time()
