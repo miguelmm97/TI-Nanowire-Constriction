@@ -23,19 +23,19 @@ default_Ntheta_plot      = 301                 # Default number of points in the
 
 [sim_specs]
 N_samples                 = 1                  # Number of disorder samples
-fermi_0                   = 15                 # Initial value of the Fermi energy
-fermi_end                 = 25                 # Final value of the Fermi energy
-fermi_length              = 34                # Length of the Fermi array
-E_resonance_index         = 27                # Index in the Fermi array where the resonant energy lies
+fermi_0                   = 10                 # Initial value of the Fermi energy
+fermi_end                 = 16                 # Final value of the Fermi energy
+fermi_length              = 300                # Length of the Fermi array
+E_resonance_index         = 269 #260 253 218 151 135 56 59 15   # Index in the Fermi array where the resonant energy lies
 transmission_eigenval     = 0                  # Index of the transmitted eigenmoded array we pick as the scattering state
 
 
 [flags]
-load_data                 = false            # File from which to load data. If false no data is loaded
+load_data                 = false              # File from which to load data. If false no data is loaded
 save_data                 = true               # If true saves data in an automatically generated file 'ExperimentNUM.h5'
-load_file                 = 'Experiment127.h5' # File to load if load_data is true
+load_file                 = 'Experiment133.h5' # File to load if load_data is true
 calculate_transport       = true               # If true calculates the conductance of the nanostructure
-dimension                 = '1d'               # If 1d sets Ntheta_fft to 1 but keeps a default value to plot
+dimension                 = '2d'               # If 1d sets Ntheta_fft to 1 but keeps a default value to plot
 
 
 
