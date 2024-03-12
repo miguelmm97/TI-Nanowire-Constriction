@@ -25,8 +25,8 @@ default_Ntheta_plot      = 301                 # Default number of points in the
 N_samples                 = 1                  # Number of disorder samples
 fermi_0                   = 15                 # Initial value of the Fermi energy
 fermi_end                 = 25                 # Final value of the Fermi energy
-fermi_length              = 300                # Length of the Fermi array
-E_resonance_index         = 277                # Index in the Fermi array where the resonant energy lies
+fermi_length              = 34                # Length of the Fermi array
+E_resonance_index         = 27                # Index in the Fermi array where the resonant energy lies
 transmission_eigenval     = 0                  # Index of the transmitted eigenmoded array we pick as the scattering state
 
 
