@@ -273,7 +273,6 @@ def potential_well_1D(L, Nx, V0, V_well, L0, L_well):
     V = np.concatenate((V_wall1, V_well, V_wall2))
     return V
 
-
 def potential_well_1D_smooth(x, L_walls, L_transition, L_well, V_walls, V_well, smoothing_factor=0):
 
 
@@ -286,14 +285,11 @@ def potential_well_1D_smooth(x, L_walls, L_transition, L_well, V_walls, V_well, 
     V = geom_cons(x, L1, L2, L3, V_walls, V_well, smoothing_factor)
     return V
 
-
 def potential_barrier(x, V1, V2, L0, smoothing=None):
     return V2 * step(x, L0, smoothing=smoothing) + V1
 
-
 def sin_potential(x, amplitude, period, phase=0, offset=0):
     return amplitude * np.sin(2 * pi * x / period + phase) + offset
-
 
 def sin_potential_2D(theta, Nx, L, r, amplitude, period, phase=0, offset=0):
     V_real = amplitude * np.repeat(np.sin(2 * pi * theta / period + phase), Nx).reshape(len(theta), Nx) \
@@ -301,7 +297,6 @@ def sin_potential_2D(theta, Nx, L, r, amplitude, period, phase=0, offset=0):
     V_1 = fft2(V_real) * np.sqrt(L * 2 * pi * r) / (Nx * len(theta))
     V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * r))
     return V_real, V_fft
-
 
 def gaussian_correlated_potential_1D_FFT(L, Nx, strength, xi, vf):
     """
@@ -342,7 +337,6 @@ def gaussian_correlated_potential_1D_FFT(L, Nx, strength, xi, vf):
     Vgauss = np.sqrt(2 * pi) * ifft(FT_V) / dx / np.sqrt(df)
 
     return Vgauss
-
 
 def gaussian_correlated_potential_2D_FFT(L, r, Nx, Ny, strength, xi, vf):
     """
@@ -418,6 +412,47 @@ def constant_2D_potential(Nx, Ntheta, V, L, r):
     V_real = V * np.ones((Ntheta, Nx))
     V_1 = fft2(V_real) * np.sqrt(L * 2 * pi * r) / (Nx * Ntheta)
     V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * r))
+    return V_real, V_fft
+
+def circular_quantum_dot_potential(vec_x, vec_theta, r, V1, V2, radius, x_center=None, theta_center=None):
+
+    if x_center is None: x_center = vec_x[int(len(vec_x) / 2)]
+    if theta_center is None: theta_center = vec_theta[int(len(vec_theta) / 2)]
+
+    V_real = V1 * np.ones((len(vec_theta), len(vec_x)))
+    for i, theta in enumerate(vec_theta):
+        for j, x in enumerate(vec_x):
+            if np.sqrt((x - x_center) ** 2 + (r * (theta - theta_center)) ** 2) < radius:
+                V_real[i, j] = V2
+
+    V_1 = fft2(V_real) * np.sqrt(vec_x[-1] * 2 * pi * r) / (len(vec_x) * len(vec_theta))
+    V_fft = ifft(V_1, axis=1) * (len(vec_x)/ np.sqrt(vec_x[-1])) * (1 / np.sqrt(2 * pi * r))
+    return V_real, V_fft
+
+def smooth_circular_quantum_dot(vec_x, vec_theta, r1, r2, V1, V2, radius, smoothing=None, x_center=None, theta_center=None):
+
+    if x_center is None: x_center = vec_x[int(len(vec_x) / 2)]
+    if theta_center is None: theta_center = vec_theta[int(len(vec_theta) / 2)]
+
+    V_real = np.zeros((len(vec_theta), len(vec_x)))
+    for i, theta in enumerate(vec_theta):
+        for j, x in enumerate(vec_x):
+            dist = np.sqrt((x - x_center) ** 2 + (radius * (theta - theta_center)) ** 2)
+            V_real[i, j] = geom_nc(dist, r1, r2, V1, V2, sigma=smoothing)
+
+    V_1 = fft2(V_real) * np.sqrt(vec_x[-1] * 2 * pi * radius) / (len(vec_x) * len(vec_theta))
+    V_fft = ifft(V_1, axis=1) * (len(vec_x)/ np.sqrt(vec_x[-1])) * (1 / np.sqrt(2 * pi * radius))
+    return V_real, V_fft
+
+def lead_connecting_channel_potential(Nx, Ntheta, x, theta_vec, V1, V2, delta_theta, theta_center, radius):
+
+    V_real = V1 * np.ones((Ntheta, Nx))
+    for i, theta in enumerate(theta_vec):
+        if np.abs(radius * theta - theta_center) < delta_theta:
+            V_real[i, :]  = V2
+
+    V_1 = fft2(V_real) * np.sqrt(x[-1] * 2 * pi * radius) / (len(x) * len(theta_vec))
+    V_fft = ifft(V_1, axis=1) * (len(x) / np.sqrt(x[-1])) * (1 / np.sqrt(2 * pi * radius))
     return V_real, V_fft
 
 

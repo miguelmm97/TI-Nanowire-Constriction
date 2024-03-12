@@ -25,7 +25,7 @@ from colorlog import ColoredFormatter
 
 # External modules
 from TransportClass import transport, gaussian_correlated_potential_1D_FFT, gaussian_correlated_potential_2D_FFT, \
-    get_fileID, check_imaginary, potential_well_1D_smooth
+    get_fileID, check_imaginary, lead_connecting_channel_potential
 
 # %% Logging setup
 logger_main = logging.getLogger('main')
@@ -56,14 +56,13 @@ variables = config.variables
 for key in variables:
     globals().update(variables[key])
 
-
 x                     = np.linspace(0, L, Nx)                                             # Discretised position
-Ntheta_grid           = Ntheta_fft if dimension=='2d' else 1                                    # Grid for theta
+Ntheta_grid           = Ntheta_fft if dimension=='2d' else 1                              # Grid for theta
 Ntheta_plot           = Ntheta_fft if dimension=='2d' else default_Ntheta_plot
-theta                 = np.linspace(0, 2 * pi, Ntheta_plot)                                # Discretised angles
-fermi                 = np.linspace(fermi_0, fermi_end, fermi_length)                            # Fermi energy sample
-G                     = np.zeros((N_samples, fermi.shape[0]))                                    # Conductance storage
-V_real_storage        = np.zeros((N_samples, Ntheta_grid, Nx))                                   # Vxy storage
+theta                 = np.linspace(0, 2 * pi, Ntheta_plot)                               # Discretised angles
+fermi                 = np.linspace(fermi_0, fermi_end, fermi_length)                     # Fermi energy sample
+G                     = np.zeros((N_samples, fermi.shape[0]))                             # Conductance storage
+V_real_storage        = np.zeros((N_samples, Ntheta_grid, Nx))                            # Vxy storage
 V_fft_storage         = np.zeros((N_samples, Ntheta_grid, Nx), dtype=np.complex128)       # Vfft storage
 scatt_states_up       = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.complex128)   # Scattering states storage
 scatt_density_up      = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.complex128)   # Scattering states storage
@@ -72,7 +71,7 @@ scatt_density_down    = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.comp
 
 L_lead, L_trans, L_well = L / 5, L/5, L/5
 gap = vf / (2 * r)
-V0, V1 = 20, 20 - 2 * gap
+V0, V1 = 20, -20   #20 - 2 * gap
 amplitude, period = 30, L / 3
 # %% Transport Calculation
 start_time = time.time()
@@ -111,9 +110,10 @@ if calculate_transport:
         else:
             # V_fft, V_real = gaussian_correlated_potential_2D_FFT(L, r, Nx, Ntheta_fft, dis_strength, corr_length, vf)
             # V_real, V_fft = sin_potential_theta(theta, Nx, amplitude, pi / 3)
-            V_real, V_fft = constant_2D_potential(Nx, Ntheta_grid, 0, L, r)
-
-
+            # V_real, V_fft = constant_2D_potential(Nx, Ntheta_grid, 0, L, r)
+            # V_real, V_fft = circular_quantum_dot_potential(x, theta, r, V0, V1, 100)
+            # V_real, V_fft = smooth_circular_quantum_dot(x, theta, 150, 50, V1, V0, r, smoothing=0.1)
+            V_real, V_fft = lead_connecting_channel_potential(Nx, Ntheta_grid, x, theta, V0, V1, 10, 200, r)
 
         # Create geometry
         logger_main.trace(' Creating model...')
@@ -400,9 +400,9 @@ else:
                                                                                                     dis_strength, Nx))
 
     gap = vf / (2 * r)
-    contours = ax33.contour(V_real_storage[sample, :, :], levels=[fermi[E_resonance_index] - 2 * gap,
-                                                                  fermi[E_resonance_index] + 2 * gap], colors="black",
-                            linewidths=2)
+    # contours = ax33.contour(V_real_storage[sample, :, :], levels=[fermi[E_resonance_index] - 2 * gap,
+    #                                                               fermi[E_resonance_index] + 2 * gap], colors="black",
+    #                         linewidths=2)
 
     # Distribution of scattering states
     sample = 0
@@ -424,15 +424,16 @@ else:
     ax34.tick_params(which='major', length=14, labelsize=15)
     ax34.set_title(" Bound state density at energy $E=$ {:.2f} meV".format(fermi[E_resonance_index]))
     gap = vf / (2 * r)
-    contours = ax34.contour(V_real_storage[sample, :, :], levels=[fermi[E_resonance_index] - 2 * gap,
-                                                                  fermi[E_resonance_index] + 2 * gap], colors="black",
-                            linewidths=2)
+    # contours = ax34.contour(V_real_storage[sample, :, :], levels=[fermi[E_resonance_index] - 2 * gap,
+    #                                                               fermi[E_resonance_index] + 2 * gap], colors="black",
+    #                         linewidths=2)
 
     # Transmission eigenvalues
     ax35.plot(np.arange(len(trans_eigenvalues)), np.sort(trans_eigenvalues), 'o', color=color_list[2])
-    ax35.plot(len(trans_eigenvalues) - transmission_eigenval,
+    ax35.plot(len(trans_eigenvalues) - transmission_eigenval - 1,
               np.sort(trans_eigenvalues)[len(trans_eigenvalues) - transmission_eigenval - 1], 'o', color='red')
     ax35.set_yscale('log')
+    ax35.set_ylim(10e-16, 10)
     ax35.yaxis.set_label_position("right")
     ax35.yaxis.tick_right()
     ax35.set_xlabel("Transmission eigenvalues", fontsize=20)
@@ -464,51 +465,3 @@ else:
 
     plt.show()
 
-
-
-# # Conductance plot
-#     fig, ax1 = plt.subplots(figsize=(8, 6))
-#     ax1.plot(fermi, G_avg, color=color_list[1], label='$r=$ {} nm'.format(r))
-#     ax1.set_xlim(min(fermi), max(fermi))
-#     ax1.set_ylim(0, 24)
-#
-#     ax1.plot(np.repeat(2 * Vstd_th_1d, 10), np.linspace(0, 10, 10), '--', color='#A9A9A9', alpha=0.5)
-#     ax1.plot(np.repeat(-2 * Vstd_th_1d, 10), np.linspace(0, 10, 10), '--', color='#A9A9A9', alpha=0.5)
-#     ax1.text(2 * Vstd_th_1d - 10, 9, '$2\sigma$', fontsize=20, rotation='vertical', color='#A9A9A9', alpha=0.5)
-#     ax1.text(- 2 * Vstd_th_1d + 3, 9, '$2\sigma$', fontsize=20, rotation='vertical', color='#A9A9A9', alpha=0.5)
-#
-#     ax1.tick_params(which='major', width=0.75, labelsize=20)
-#     ax1.tick_params(which='major', length=14, labelsize=20)
-#     ax1.set_xlabel("$E_F$ [meV]", fontsize=20)
-#     ax1.set_ylabel("$G[2e^2/h]$", fontsize=20)
-#     # ax1.set_title(" Gaussian correlated: ExpID= {}, $\\xi=$ {} nm, $N_q=$ {}, $N_s=$ {}, $L=$ {} nm, $K_v=$ {}".format(expID, corr_length, Nx, N_samples, x[-1], dis_strength))
-#     ax1.legend(loc='upper right', ncol=1, fontsize=20)
-#
-#     # Inset showing a potential sample
-#     sample = 0
-#     left, bottom, width, height = [0.35, 0.65, 0.3, 0.3]
-#     inset_ax1 = ax1.inset_axes([left, bottom, width, height])
-#     inset_ax1.plot(x, V_real_storage[sample, 0, :], color='#6495ED')
-#     inset_ax1.set_xlim(x[0], x[-1])
-#     inset_ax1.set_ylim(-4 * Vstd_th_1d, 4 * Vstd_th_1d)
-#
-#     inset_ax1.plot(x, Vstd_th_1d * np.ones(x.shape), '--k')
-#     inset_ax1.plot(x, -Vstd_th_1d * np.ones(x.shape), '--k')
-#     inset_ax1.plot(x, 2 * Vstd_th_1d * np.ones(x.shape), '--k')
-#     inset_ax1.plot(x, -2 * Vstd_th_1d * np.ones(x.shape), '--k')
-#     inset_ax1.plot(x, 3 * Vstd_th_1d * np.ones(x.shape), '--k')
-#     inset_ax1.plot(x, -3 * Vstd_th_1d * np.ones(x.shape), '--k')
-#     inset_ax1.text(450, 1.1 * Vstd_th_1d, '$1\sigma$', fontsize=20)
-#     inset_ax1.text(450, 2.1 * Vstd_th_1d, '$2\sigma$', fontsize=20)
-#     inset_ax1.text(450, 3.1 * Vstd_th_1d, '$3\sigma$', fontsize=20)
-#     inset_ax1.text(450, -1.5 * Vstd_th_1d, '$1\sigma$', fontsize=20)
-#     inset_ax1.text(450, -2.5 * Vstd_th_1d, '$2\sigma$', fontsize=20)
-#     inset_ax1.text(450, -3.5 * Vstd_th_1d, '$3\sigma$', fontsize=20)
-#
-#     ax1.tick_params(which='major', width=0.75, labelsize=20)
-#     ax1.tick_params(which='major', length=14, labelsize=20)
-#     inset_ax1.set_xlabel("$L$ [nm]", fontsize=20)
-#     inset_ax1.set_ylabel("$V$ [meV]", fontsize=20)
-#     # inset_ax1.set_title(" Gaussian correlated potential samples with $\\xi=$ {} nm, $K_V=$ {} and $N_x=$ {}".format(corr_length, dis_strength, Nx))
-#     inset_ax1.plot()
-#     plt.show()
