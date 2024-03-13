@@ -765,6 +765,8 @@ class transport:
         S = None
         for i in range(0, self.n_regions):
             S = self.get_scattering_matrix(E, **self.geometry[i], S=S)
+            S[np.abs(S) < 2 * np.finfo(np.float64).eps] = 0
+
 
         # Transmission matrix SVD
         t = S[self.Nmodes:, 0: self.Nmodes]
@@ -792,7 +794,7 @@ class transport:
 
         return phi_inL, phi_outR
 
-    def get_scattering_states_back_forth_method(self, E, theta_vec, initial_state=0, debug=False):
+    def get_scattering_states(self, E, theta_vec, initial_state=0, debug=False):
 
         logger_transport.trace('Calculating scattering states...')
 
@@ -808,6 +810,8 @@ class transport:
         for i in range(0, self.n_regions):
             S1 = self.get_scattering_matrix(E, **self.geometry[i], S=S1)
             S2 = self.get_scattering_matrix(E, **self.geometry[self.n_regions - 1 - i], S=S2, backwards=True)
+            S1[np.abs(S1) < 2 * np.finfo(np.float64).eps] = 0
+            S2[np.abs(S2) < 2 * np.finfo(np.float64).eps] = 0
             S_forward_storage[:, :, i] = S1
             S_backwards_storage[:, :, i] = S2
 
@@ -831,7 +835,7 @@ class transport:
                 raise ValueError('Forward and backwards scattering matrices do not coincide!')
 
         # State at the leads
-        phi_inL_lead, phi_outR_lead = self.get_transmitted_state(E, state=initial_state, debug=True)
+        phi_inL_lead, phi_outR_lead = self.get_transmitted_state(E, state=initial_state)
 
         logger_transport.trace('Calculating distribution of scattering states...')
         n_modes = len(phi_inL_lead)

@@ -1,4 +1,4 @@
-# %% Modules setup
+#%% Modules setup
 
 # Math and plotting
 import numpy as np
@@ -26,7 +26,7 @@ from colorlog import ColoredFormatter
 
 # External modules
 from TransportClass import transport, gaussian_correlated_potential_1D_FFT, gaussian_correlated_potential_2D_FFT, \
-    get_fileID, check_imaginary, lead_connecting_channel_potential
+    get_fileID, check_imaginary, constant_2D_potential
 
 # %% Logging setup
 logger_main = logging.getLogger('main')
@@ -103,18 +103,18 @@ if calculate_transport:
             V_fft, V_real = V_fft_load[n, :, :], V_real_load[n, :, :]
         elif dimension=='1d':
             # V_real = gaussian_correlated_potential_1D_FFT(L, Nx, dis_strength, corr_length, vf)
-            V_real = potential_well_1D_smooth(x, L_lead, L_trans, L_well, V0, V1, smoothing_factor=1)
-            # V_real = potential_well_1D(L, Nx, V0, V1, L/3, L/3)
+            # V_real = potential_well_1D_smooth(x, L_lead, L_trans, L_well, V0, V1, smoothing_factor=1)
+            V_real = potential_well_1D(L, Nx, V0, V0, L/3, L/3)
             # V_real = potential_barrier(x, 30, -60, L/2, smoothing=0.1)
             # V_real = sin_potential(x, amplitude, period)
             V_fft = V_real
         else:
             # V_fft, V_real = gaussian_correlated_potential_2D_FFT(L, r, Nx, Ntheta_fft, dis_strength, corr_length, vf)
             # V_real, V_fft = sin_potential_theta(theta, Nx, amplitude, pi / 3)
-            # V_real, V_fft = constant_2D_potential(Nx, Ntheta_grid, 0, L, r)
+            V_real, V_fft = constant_2D_potential(Nx, Ntheta_grid, 20, L, r)
             # V_real, V_fft = circular_quantum_dot_potential(x, theta, r, V0, V1, 100)
             # V_real, V_fft = smooth_circular_quantum_dot(x, theta, 150, 50, V1, V0, r, smoothing=0.1)
-            V_real, V_fft = lead_connecting_channel_potential(Nx, Ntheta_grid, x, theta, V0, V1, 10, 200, r)
+            # V_real, V_fft = lead_connecting_channel_potential(Nx, Ntheta_grid, x, theta, V0, V1, 10, 200, r)
 
         # Create geometry
         logger_main.trace(' Creating model...')
@@ -138,8 +138,8 @@ if calculate_transport:
     # Scattering states and transmission eigenvalues at the resonant energies
     logger_main.info('Calculating scattering states...')
     trans_eigenvalues = model_gauss.get_transmission_eigenvalues(fermi[E_resonance_index])[0]
-    scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states_back_forth_method(
-        fermi[E_resonance_index], theta, debug=False)
+    scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states(fermi[E_resonance_index], theta,
+                                                                            initial_state=transmission_eigenval, debug=False)
     scatt_density_up[0, :, :] = np.real(scatt_states_up[0, :, :] * scatt_states_up[0, :, :].conj())
     scatt_density_down[0, :, :] = np.real(scatt_states_down[0, :, :] * scatt_states_down[0, :, :].conj())
 
@@ -158,9 +158,8 @@ else:
     # Scattering states and transmission eigenvalues at the resonant energies
     logger_main.info('Calculating scattering states...')
     trans_eigenvalues = model_gauss.get_transmission_eigenvalues(fermi[E_resonance_index])[0]
-    scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states_back_forth_method(
-        fermi[E_resonance_index],
-        theta, initial_state=transmission_eigenval, debug=False)
+    scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states(fermi[E_resonance_index],
+                                                                theta, initial_state=transmission_eigenval)
     scatt_density_up[0, :, :] = np.real(scatt_states_up[0, :, :] * scatt_states_up[0, :, :].conj())
     scatt_density_down[0, :, :] = np.real(scatt_states_down[0, :, :] * scatt_states_down[0, :, :].conj())
 
@@ -402,14 +401,13 @@ else:
 
     gap = vf / (2 * r)
     # contours = ax33.contour(V_real_storage[sample, :, :], levels=[fermi[E_resonance_index] - 2 * gap,
-    #                                                               fermi[E_resonance_index] + 2 * gap], colors="black",
-    #                         linewidths=2)
+    #                                      fermi[E_resonance_index] + 2 * gap], colors="black", linewidths=2)
 
     # Distribution of scattering states
     sample = 0
     check_imaginary(scatt_density_up[sample, :, :])
     density_plot = ax34.imshow(
-        np.real(scatt_density_up[sample, :, :]) / np.max(np.real(scatt_density_up[sample, :, :])), origin='lower',
+        np.real(scatt_density_up[sample, :, :]) / np.max(np.real(scatt_density_up[sample, :, :])),
         cmap='plasma', vmin=0, vmax=1, aspect='auto')
     divider34 = make_axes_locatable(ax34)
     cax34 = divider34.append_axes("right", size="5%", pad=0.05)
@@ -447,9 +445,8 @@ else:
     # Distribution of scattering states in logscale
     sample = 0
     check_imaginary(scatt_density_up[sample, :, :])
-    density_plot = ax36.imshow(
-        np.log(np.real(scatt_density_up[sample, :, :]) / np.max(np.real(scatt_density_up[sample, :, :]))),
-        origin='lower', cmap='plasma', aspect='auto', vmax=0, vmin=-8)
+    density_plot = ax36.imshow(np.log(np.real(scatt_density_up[sample, :, :]) / np.max(np.real(scatt_density_up[sample, :, :]))),
+                                                                        cmap='plasma', aspect='auto', vmax=0, vmin=-8)
     divider36 = make_axes_locatable(ax36)
     cax36 = divider36.append_axes("right", size="5%", pad=0.05)
     cbar36 = fig.colorbar(density_plot, cax=cax36, orientation='vertical')
