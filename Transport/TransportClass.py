@@ -89,14 +89,13 @@ def step(x1, x2, smoothing=None):
     else:
         return 0.5 + (1 / pi) * np.arctan(smoothing * (x1 - x2))
 
-
 def geom_nc(x, x1, x2, r1, r2, sigma=None):
     return r1 + (r2 - r1) * step(x, x2, sigma) + ((r2 - r1) / (x2 - x1)) * (x - x1) * (
                 step(x, x1, sigma) - step(x, x2, sigma))
 
-
 def geom_cons(x, x1, x2, x3, r1, r2, sigma):
     return geom_nc(x, x1, x2, r1, r2, sigma) + geom_nc(-x + x2 + x3, x1, x2, r1, r2, sigma) - r2
+
 
 
 # Transfer and scattering
@@ -122,14 +121,12 @@ def M_Ax(modes, dx, w, h, B_perp=0.):
 
         return np.kron(sigma_0, M) * dx
 
-
 def M_theta(modes, dx, R, dR, w=None, h=None, B_par=0.):
     C = 0.5 * (nm ** 2) * e * B_par / hbar
     A_theta = C * R ** 2 if (w is None or h is None) else C * (w * h / pi)  # A_theta = eBa²/2hbar
     M = (np.sqrt(1 + dR ** 2) / R) * np.diag(modes - 0.5 + A_theta)  # 1/R (n-1/2 + eBa²/2hbar) term
 
     return np.kron(sigma_x, M) * dx
-
 
 def M_EV(modes, dx, dR, E, vf, Vnm=None):
     if Vnm is None:
@@ -140,7 +137,6 @@ def M_EV(modes, dx, dR, E, vf, Vnm=None):
 
     M = (1j / vf) * np.sqrt(1 + dR ** 2) * (E * np.eye(len(modes)) - Vnm)  # i ( E delta_nm + V_nm) / vf term
     return np.kron(sigma_z, M) * dx
-
 
 def transfer_to_scattering(T, debug=False):
     n_modes = int(T.shape[0] / 2)
@@ -176,7 +172,6 @@ def transfer_to_scattering(T, debug=False):
 
     return S
 
-
 def scattering_to_transfer(S, debug=False):
     n_modes = int(S.shape[0] / 2)
     if debug:
@@ -211,7 +206,6 @@ def scattering_to_transfer(S, debug=False):
             raise ValueError('Current flow not preserved by the transfer matrix!')
 
     return T
-
 
 def scat_product(s1, s2, debug=False):
     if debug:
@@ -252,7 +246,6 @@ def scat_product(s1, s2, debug=False):
 
     return scat_matrix
 
-
 def transport_mode(x, theta, r, n, E, vf, spin='up', lead=True):
     k = (E / vf) ** 2 - (1 / r ** 2) * (n - 0.5) ** 2
     norm = 1 / np.sqrt(2 * pi * r)
@@ -269,6 +262,7 @@ def transport_mode(x, theta, r, n, E, vf, spin='up', lead=True):
         return norm * transverse_part * longitudinal_part
     else:
         return norm * transverse_part
+
 
 
 # Different types of potentials
@@ -478,51 +472,22 @@ def get_fileID(file_list):
             expID = max(ID, expID)
     return expID + 1
 
-
-def code_testing(L, Nx, Ntheta, dis_strength, corr_length, vf, check=0):
-    # Simple check: No potential in 1d
-    if check == 0:
-        V_fft = np.zeros((Nx,))
-        V_real = V_fft
-
-    # Simple check: Constant potential in 1d
-    if check == 1:
-        V_fft = 10 * np.ones((Nx,))
-        V_real = V_fft
-
-    # Simple check: Constant potential in 2d
-    elif check == 2:
-        V_real = 10 * np.ones((Ntheta, Nx))
-        V_1 = fft2(V_real) * np.sqrt(L * 2 * pi * 20) / (Nx * Ntheta)
-        V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * 20))
-
-
-    # Simple check: V periodic function of theta
-    elif check == 3:
-        V_real = np.zeros((Ntheta, Nx))
-        theta_sample = np.linspace(0, 2 * pi, Ntheta, endpoint=False)
-        for i in range(Nx): V_real[:, i] = np.sin(theta_sample)
-        V_1 = fft2(V_real) * np.sqrt(L * 2 * pi * 20) / (Nx * Ntheta)
-        V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * 20))
-
-
-    # Simple check: Comparison 1d vs 2d with the same gaussian correlated potential
-    elif check == 4:
-        V_real = gaussian_correlated_potential_1D_FFT(L, Nx, dis_strength, corr_length, vf);
-        V_fft = V_real
-        V_real2 = np.zeros((Ntheta, Nx))
-        for i in range(Nx): V_real2[:, i] = np.ones((Ntheta,)) * V_real[i]
-        V_1 = fft2(V_real2) * np.sqrt(L * 2 * pi * 20) / (Nx * Ntheta)
-        V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * 20))
-
-    return V_fft, V_real
-
-
 def check_imaginary(array):
     for x in np.nditer(array):
         if not np.imag(x) < 1e-15:
             raise ValueError('Imaginary part is not negligible!')
 
+def store_my_data(file, name, data):
+    try:
+        file.create_dataset(name=name, data=data)
+    except Exception as ex:
+        logger_transport.error(f'Failed to write {name} because of exception: {ex}')
+
+def attr_my_data(dataset, attr_name, attr):
+    try:
+        dataset.attrs.create(name=attr_name, data=attr)
+    except Exception as ex:
+        logger_transport.error(f'Failed to write {attr_name} because of exception: {ex}')
 
 @dataclass
 class transport:

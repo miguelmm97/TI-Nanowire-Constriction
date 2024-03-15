@@ -12,6 +12,7 @@ import h5py
 import os
 import sys
 import config
+from TransportClass import store_my_data, attr_my_data, get_fileID
 
 # Tracking time
 import time
@@ -23,8 +24,8 @@ import colorlog
 from colorlog import ColoredFormatter
 
 # External modules
-from TransportClass import transport, gaussian_correlated_potential_1D_FFT, gaussian_correlated_potential_2D_FFT, \
-    get_fileID, check_imaginary, smooth_circular_quantum_dot
+from TransportClass import transport, gaussian_correlated_potential_1D_FFT, gaussian_correlated_potential_2D_FFT,\
+    check_imaginary, smooth_circular_quantum_dot
 
 # %% Logging setup
 logger_main = logging.getLogger('main')
@@ -177,29 +178,30 @@ filepath = os.path.join('Data', filename)
 if save_data:
     logger_main.info('Storing data...')
     with h5py.File(filepath, 'w') as f:
-        f.create_dataset("Conductance", data=G)
-        f.create_dataset("Potential_FFT", data=V_fft_storage)
-        f.create_dataset("Potential_xy", data=V_real_storage)
-        f.create_dataset("scatt_states_up", data=scatt_states_up)
-        f.create_dataset("scatt_states_down", data=scatt_states_down)
-        f["Conductance"].attrs.create("Date", data=str(date.today()))
-        f["Conductance"].attrs.create("Code_path", data=sys.argv[0])
-        f["Conductance"].attrs.create("vf", data=vf)
-        f["Conductance"].attrs.create("B_perp", data=B_perp)
-        f["Conductance"].attrs.create("n_flux", data=n_flux)
-        f["Conductance"].attrs.create("l_cutoff", data=l_cutoff)
-        f["Conductance"].attrs.create("corr_length", data=corr_length)
-        f["Conductance"].attrs.create("dis_strength", data=dis_strength)
-        f["Conductance"].attrs.create("radius", data=r)
-        f["Conductance"].attrs.create("x0", data=x[0])
-        f["Conductance"].attrs.create("xf", data=x[-1])
-        f["Conductance"].attrs.create("Nx", data=Nx)
-        f["Conductance"].attrs.create("Ntheta_fft", data=Ntheta_fft)
-        f["Conductance"].attrs.create("Ntheta_grid", data=Ntheta_grid)
-        f["Conductance"].attrs.create("N_samples", data=N_samples)
-        f["Conductance"].attrs.create("fermi0", data=fermi[0])
-        f["Conductance"].attrs.create("fermif", data=fermi[-1])
-        f["Conductance"].attrs.create("Nfermi", data=fermi.shape[0])
+        store_my_data(f,                    "Conductance",             G)
+        store_my_data(f,                    "Potential_FFT",           V_fft_storage)
+        store_my_data(f,                    "Potential_xy",            V_real_storage)
+        store_my_data(f,                    "scatt_states_up",         scatt_states_up)
+        store_my_data(f,                    "scatt_states_down",       scatt_states_down)
+        attr_my_data(f["Conductance"],      "Date",                    str(date.today()))
+        attr_my_data(f["Conductance"],      "Code_path",               sys.argv[0])
+        attr_my_data(f["Conductance"],      "vf",                      vf)
+        attr_my_data(f["Conductance"],      "B_perp",                  B_perp)
+        attr_my_data(f["Conductance"],      "n_flux",                  n_flux)
+        attr_my_data(f["Conductance"],      "l_cutoff",                l_cutoff)
+        attr_my_data(f["Conductance"],      "corr_length",             corr_length)
+        attr_my_data(f["Conductance"],      "dis_strength",            dis_strength)
+        attr_my_data(f["Conductance"],      "radius",                  r)
+        attr_my_data(f["Conductance"],      "x0",                      x[0])
+        attr_my_data(f["Conductance"],      "xf",                      x[-1])
+        attr_my_data(f["Conductance"],      "Nx",                      Nx)
+        attr_my_data(f["Conductance"],      "Ntheta_fft",              Ntheta_fft)
+        attr_my_data(f["Conductance"],      "Ntheta_grid",             Ntheta_grid)
+        attr_my_data(f["Conductance"],      "N_samples",               N_samples)
+        attr_my_data(f["Conductance"],      "fermi0",                  fermi[0])
+        attr_my_data(f["Conductance"],      "fermif",                  fermi[-1])
+        attr_my_data(f["Conductance"],      "Nfermi",                  fermi.shape[0])
+
 
 # %% Figures
 font = {'family': 'serif', 'color': 'black', 'weight': 'normal', 'size': 22, }
