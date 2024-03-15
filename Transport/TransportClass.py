@@ -1,10 +1,19 @@
-from dataclasses import dataclass, field
+#%% Modules setup
+
+# Math
 from numpy import pi, ComplexWarning
 from numpy.linalg import inv
-from scipy.linalg import expm, ishermitian
+from scipy.linalg import expm, ishermitian, svd
 import numpy as np
 from numpy.fft import ifft, ifft2, fft2
+
+# Managing classes
+from dataclasses import dataclass, field
+
+# Tracking time
 import time
+
+# Managing logging
 import logging
 import colorlog
 from colorlog import ColoredFormatter
@@ -765,12 +774,16 @@ class transport:
         S = None
         for i in range(0, self.n_regions):
             S = self.get_scattering_matrix(E, **self.geometry[i], S=S)
-            S[np.abs(S) < 2 * np.finfo(np.float64).eps] = 0
 
-
-        # Transmission matrix SVD
+        # Transmission matrix SVD (Get rid of numerical noise to improve SVD precision)
         t = S[self.Nmodes:, 0: self.Nmodes]
-        u_t, sing_val_t, v_t = np.linalg.svd(t)
+        t[np.abs(t) < 2 * np.finfo(np.float64).eps] = 0
+        u_t, sing_val_t, v_t = svd(t, compute_uv=True, full_matrices=False, lapack_driver='gesvd')
+
+        if debug:
+            t_aux = t - np.diag(np.diag(t))
+            logger_transport.debug('Maximum off-diagonal element in t: {}'.format(np.max(np.abs(t_aux))))
+
 
         # Ordering the singular values squared from max to min
         idx = np.flip((sing_val_t ** 2).argsort())
@@ -785,7 +798,7 @@ class transport:
         if debug:
             logger_transport.debug('Performing checks on the transmission spectrum...')
             tt = t.T.conj() @ t
-            u_tt, sing_val_tt, v_tt = np.linalg.svd(tt)
+            u_tt, sing_val_tt, v_tt = svd(tt, compute_uv=True, lapack_driver='gesvd')
             tt_eigval = np.linalg.eigvalsh(tt)
             if not np.allclose(np.sort(sing_val_t ** 2), np.sort(sing_val_tt)):
                 raise ValueError('Singular values of t^\dagger t do not coincide with singular values of t squared!')
@@ -810,8 +823,6 @@ class transport:
         for i in range(0, self.n_regions):
             S1 = self.get_scattering_matrix(E, **self.geometry[i], S=S1)
             S2 = self.get_scattering_matrix(E, **self.geometry[self.n_regions - 1 - i], S=S2, backwards=True)
-            S1[np.abs(S1) < 2 * np.finfo(np.float64).eps] = 0
-            S2[np.abs(S2) < 2 * np.finfo(np.float64).eps] = 0
             S_forward_storage[:, :, i] = S1
             S_backwards_storage[:, :, i] = S2
 

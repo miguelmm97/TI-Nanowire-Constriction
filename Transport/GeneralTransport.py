@@ -6,7 +6,6 @@ from numpy import pi
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.gridspec import GridSpec
-from numpy.fft import ifft, ifft2, fft2
 
 # Managing system, data and config files
 import h5py
@@ -18,7 +17,6 @@ import config
 import time
 from datetime import date
 
-
 # Managing logging
 import logging
 import colorlog
@@ -26,7 +24,7 @@ from colorlog import ColoredFormatter
 
 # External modules
 from TransportClass import transport, gaussian_correlated_potential_1D_FFT, gaussian_correlated_potential_2D_FFT, \
-    get_fileID, check_imaginary, constant_2D_potential
+    get_fileID, check_imaginary, smooth_circular_quantum_dot
 
 # %% Logging setup
 logger_main = logging.getLogger('main')
@@ -70,10 +68,7 @@ scatt_density_up      = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.comp
 scatt_states_down     = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.complex128)   # Scattering states storage
 scatt_density_down    = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.complex128)   # Scattering states storage
 
-L_lead, L_trans, L_well = L / 5, L/5, L/5
-gap = vf / (2 * r)
-V0, V1 = 20, -20  #20 - 2 * gap
-amplitude, period = 30, L / 3
+
 # %% Transport Calculation
 start_time = time.time()
 
@@ -99,21 +94,27 @@ if calculate_transport:
 
         # Load/create potential landscape
         logger_main.trace('Generating potential...')
+
+        L_lead, L_trans, L_well = L / 5, L / 5, L / 5
+        gap = vf / (2 * r)
+        V0, V1 = 20, - 20    # 20 - 2 * gap
+        amplitude, period = 30, L / 3
+
         if load_data:
             V_fft, V_real = V_fft_load[n, :, :], V_real_load[n, :, :]
         elif dimension=='1d':
             # V_real = gaussian_correlated_potential_1D_FFT(L, Nx, dis_strength, corr_length, vf)
             # V_real = potential_well_1D_smooth(x, L_lead, L_trans, L_well, V0, V1, smoothing_factor=1)
-            V_real = potential_well_1D(L, Nx, V0, V0, L/3, L/3)
+            # V_real = potential_well_1D(L, Nx, V0, V0, L/3, L/3)
             # V_real = potential_barrier(x, 30, -60, L/2, smoothing=0.1)
             # V_real = sin_potential(x, amplitude, period)
             V_fft = V_real
         else:
-            # V_fft, V_real = gaussian_correlated_potential_2D_FFT(L, r, Nx, Ntheta_fft, dis_strength, corr_length, vf)
+            V_fft, V_real = gaussian_correlated_potential_2D_FFT(L, r, Nx, Ntheta_fft, dis_strength, corr_length, vf)
             # V_real, V_fft = sin_potential_theta(theta, Nx, amplitude, pi / 3)
-            V_real, V_fft = constant_2D_potential(Nx, Ntheta_grid, 20, L, r)
+            # V_real, V_fft = constant_2D_potential(Nx, Ntheta_grid, 20, L, r)
             # V_real, V_fft = circular_quantum_dot_potential(x, theta, r, V0, V1, 100)
-            # V_real, V_fft = smooth_circular_quantum_dot(x, theta, 150, 50, V1, V0, r, smoothing=0.1)
+            # V_real, V_fft = smooth_circular_quantum_dot(x, theta, 75, 25, V1, V0, r, smoothing=0.1)
             # V_real, V_fft = lead_connecting_channel_potential(Nx, Ntheta_grid, x, theta, V0, V1, 10, 200, r)
 
         # Create geometry
