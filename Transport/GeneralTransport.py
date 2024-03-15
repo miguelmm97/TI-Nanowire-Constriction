@@ -191,15 +191,15 @@ if save_data:
         f["Conductance"].attrs.create("corr_length", data=corr_length)
         f["Conductance"].attrs.create("dis_strength", data=dis_strength)
         f["Conductance"].attrs.create("radius", data=r)
-        f["Conductance"].attrs.create("x", data=x)
+        f["Conductance"].attrs.create("x0", data=x[0])
+        f["Conductance"].attrs.create("xf", data=x[-1])
         f["Conductance"].attrs.create("Nx", data=Nx)
         f["Conductance"].attrs.create("Ntheta_fft", data=Ntheta_fft)
         f["Conductance"].attrs.create("Ntheta_grid", data=Ntheta_grid)
         f["Conductance"].attrs.create("N_samples", data=N_samples)
-        f["Conductance"].attrs.create("fermi", data=fermi)
         f["Conductance"].attrs.create("fermi0", data=fermi[0])
-        f["Conductance"].attrs.create("fermi-1", data=fermi[-1])
-        f["Conductance"].attrs.create("fermi_resolution", data=fermi.shape[0])
+        f["Conductance"].attrs.create("fermif", data=fermi[-1])
+        f["Conductance"].attrs.create("Nfermi", data=fermi.shape[0])
 
 # %% Figures
 font = {'family': 'serif', 'color': 'black', 'weight': 'normal', 'size': 22, }
