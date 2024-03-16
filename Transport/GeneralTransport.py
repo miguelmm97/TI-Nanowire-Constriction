@@ -128,7 +128,7 @@ if calculate_transport:
         logger_main.trace('Calculating conductance:')
         for j, E in enumerate(fermi):
             start_iter = time.time()
-            G[n, j] = model_gauss.get_Landauer_conductance(E, debug=True)
+            G[n, j] = model_gauss.get_Landauer_conductance(E)
             logger_main.info(
                 'iter sample: {}/{} | iter transport: {}/{} | iter time: {:.3e} s | Fermi level: {:.3f} | Conductance: {:.2f}'.format
                 (n, N_samples - 1, j, fermi.shape[0] - 1, time.time() - start_iter, E, G[n, j]))
@@ -141,7 +141,7 @@ if calculate_transport:
     logger_main.info('Calculating scattering states...')
     trans_eigenvalues = model_gauss.get_transmission_eigenvalues(fermi[E_resonance_index])[0]
     scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states(fermi[E_resonance_index], theta,
-                                                                            initial_state=transmission_eigenval, debug=False)
+                                                                            initial_state=transmission_eigenval)
     scatt_density_up[0, :, :] = np.real(scatt_states_up[0, :, :] * scatt_states_up[0, :, :].conj())
     scatt_density_down[0, :, :] = np.real(scatt_states_down[0, :, :] * scatt_states_down[0, :, :].conj())
 

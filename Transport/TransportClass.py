@@ -705,9 +705,9 @@ class transport:
             logger_transport.debug('Performing checks on the transmission eigenvalues...')
             if not ishermitian(tt, atol=1e-15):
                 raise ValueError('Transmission matrix not hermitian!')
-            if not np.allclose(eigval_tt, np.linalg.eig(t @ t.T.conj())[0]):
+            if not np.allclose(np.sort(eigval_tt), np.sort(np.linalg.eig(t @ t.T.conj())[0])):
                 raise ValueError('Transmission eigenvalues different for t^\dagger t and t t^\dagger!')
-            if not np.allclose(np.sum(eigval_tt), np.linal.trace(tt)):
+            if not np.allclose(np.sum(eigval_tt), np.trace(tt)):
                 raise ValueError('Transmission eigenvalues do not amount for the conductance at this energy!')
 
             if np.abs(E) < 1 and self.L < 150:
