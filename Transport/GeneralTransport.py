@@ -162,8 +162,8 @@ else:
     trans_eigenvalues = model_gauss.get_transmission_eigenvalues(fermi[E_resonance_index])[0]
     scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states(fermi[E_resonance_index],
                                                                 theta, initial_state=transmission_eigenval)
-    scatt_density_up[0, :, :] = np.real(scatt_states_up[0, :, :] * scatt_states_up[0, :, :].conj())
-    scatt_density_down[0, :, :] = np.real(scatt_states_down[0, :, :] * scatt_states_down[0, :, :].conj())
+    scatt_density_up[0, :, :] = scatt_states_up[0, :, :] * scatt_states_up[0, :, :].conj()
+    scatt_density_down[0, :, :] = scatt_states_down[0, :, :] * scatt_states_down[0, :, :].conj()
 
 # Average conductance
 G_avg = np.mean(G, axis=0)
@@ -201,6 +201,7 @@ if save_data:
         attr_my_data(f["Conductance"],      "fermi0",                  fermi[0])
         attr_my_data(f["Conductance"],      "fermif",                  fermi[-1])
         attr_my_data(f["Conductance"],      "Nfermi",                  fermi.shape[0])
+        attr_my_data(f["scatt_states_up"],  "resIndex",                E_resonance_index)
 
 
 # %% Figures
@@ -247,10 +248,10 @@ if dimension=='1d':
     ax32.set_title("Conductance in the resonant region ")
 
     gap = vf / (2 * r)
-    ax32.plot((amplitude - gap) * np.ones((10, )), np.linspace(0, 15, 10), '--b')
-    ax32.plot((amplitude + gap) * np.ones((10,)), np.linspace(0, 15, 10), '--b')
-    ax32.plot((-amplitude - gap) * np.ones((10, )), np.linspace(0, 15, 10), '--b')
-    ax32.plot((-amplitude + gap) * np.ones((10,)), np.linspace(0, 15, 10), '--b')
+    # ax32.plot((amplitude - gap) * np.ones((10, )), np.linspace(0, 15, 10), '--b')
+    # ax32.plot((amplitude + gap) * np.ones((10,)), np.linspace(0, 15, 10), '--b')
+    # ax32.plot((-amplitude - gap) * np.ones((10, )), np.linspace(0, 15, 10), '--b')
+    # ax32.plot((-amplitude + gap) * np.ones((10,)), np.linspace(0, 15, 10), '--b')
     # ax32.plot((V1 - gap) * np.ones((10, )), np.linspace(0, 15, 10), '--b')
     # ax32.plot((V1 + gap) * np.ones((10,)), np.linspace(0, 15, 10), '--b')
 
@@ -268,13 +269,13 @@ if dimension=='1d':
     ax33.set_title(
         " Gaussian correlated potential samples with $\\xi=$ {} nm, $K_V=$ {} and $N_x=$ {}".format(corr_length,
                                                                                                     dis_strength, Nx))
-    peaks = np.arange(1, 20, 2) * period / 4
-    for pos in peaks:
-        ax33.plot(pos * np.ones((10, )), np.linspace(-300, 300, 10), '--m')
+    # peaks = np.arange(1, 20, 2) * period / 4
+    # for pos in peaks:
+    #     ax33.plot(pos * np.ones((10, )), np.linspace(-300, 300, 10), '--m')
 
     # Distribution of scattering states
     sample = 0
-    N_lead, N_trans, N_well = int(Nx * (L_lead / L)), int(Nx * (L_trans / L)), int(Nx * (L_well / L))
+    # N_lead, N_trans, N_well = int(Nx * (L_lead / L)), int(Nx * (L_trans / L)), int(Nx * (L_well / L))
     check_imaginary(scatt_density_up[sample, :, :])
     density_plot = ax34.imshow(
         np.real(scatt_density_up[sample, :, :]) / np.max(np.real(scatt_density_up[sample, :, :])), origin='lower',
@@ -294,10 +295,10 @@ if dimension=='1d':
     ax34.tick_params(which='major', length=14, labelsize=15)
     ax34.set_title(" Bound state density at energy $E=$ {:.2f} meV".format(fermi[E_resonance_index]))
     ax34.set_xlim(0, Nx)
-    ax34.plot(N_lead * np.ones((10, )), np.linspace(0, 300, 10), '--m')
-    ax34.plot((N_lead + N_trans) * np.ones((10,)), np.linspace(0, 300, 10), '--m')
-    ax34.plot((N_lead + N_trans + N_well) * np.ones((10,)), np.linspace(0, 300, 10), '--m')
-    ax34.plot((N_lead + 2 * N_trans + N_well) * np.ones((10,)), np.linspace(0, 300, 10), '--m')
+    # ax34.plot(N_lead * np.ones((10, )), np.linspace(0, 300, 10), '--m')
+    # ax34.plot((N_lead + N_trans) * np.ones((10,)), np.linspace(0, 300, 10), '--m')
+    # ax34.plot((N_lead + N_trans + N_well) * np.ones((10,)), np.linspace(0, 300, 10), '--m')
+    # ax34.plot((N_lead + 2 * N_trans + N_well) * np.ones((10,)), np.linspace(0, 300, 10), '--m')
     # peaks = np.arange(1, 20, 2) * period / 4
     # for pos in peaks:
     #     Npos = int(Nx * (pos / L))
