@@ -58,7 +58,7 @@ for key in variables:
 
 x                     = np.linspace(0, L, Nx)                                             # Discretised position
 Ntheta_grid           = Ntheta_fft if dimension=='2d' else 1                              # Grid for theta
-Ntheta_plot           = Ntheta_fft if dimension=='2d' else default_Ntheta_plot
+Ntheta_plot           = Ntheta_fft if dimension=='2d' else default_Ntheta_plot            # Grid for plotting theta
 theta                 = np.linspace(0, 2 * pi, Ntheta_plot)                               # Discretised angles
 fermi                 = np.linspace(fermi_0, fermi_end, fermi_length)                     # Fermi energy sample
 G                     = np.zeros((N_samples, fermi.shape[0]))                             # Conductance storage
@@ -70,10 +70,7 @@ scatt_states_down     = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.comp
 scatt_density_down    = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.complex128)   # Scattering states storage
 
 
-# %% Transport Calculation
-start_time = time.time()
-
-# Loading possible data
+# %% Loading possible data
 outdir = "Data"
 if load_data:
     logger_main.info('Loading data from {}'.format(load_file))
@@ -81,12 +78,16 @@ if load_data:
         if file == load_file:
             file_path = os.path.join(outdir, file)
             with h5py.File(file_path, 'r') as f:
-                datanode1 = f['Potential_xy']
-                V_real_load = datanode1[()]  # [0, :, :]
-                datanode2 = f['Potential_FFT']
-                V_fft_load = datanode2[()]  # [0, :, :]
-                datanode3 = f['Conductance']
-                G_load = datanode3[()]
+                datanode1     = f['Potential_xy']
+                datanode2     = f['Potential_FFT']
+                datanode3     = f['Conductance']
+                V_real_load   = datanode1[()]
+                V_fft_load    = datanode2[()]
+                G_load        = datanode3[()]
+
+
+# %% Transport Calculation
+start_time = time.time()
 
 # Transport calculation
 if calculate_transport:
@@ -95,7 +96,6 @@ if calculate_transport:
 
         # Load/create potential landscape
         logger_main.trace('Generating potential...')
-
         L_lead, L_trans, L_well = L / 5, L / 5, L / 5
         gap = vf / (2 * r)
         V0, V1 = 20, - 20    # 20 - 2 * gap
@@ -104,7 +104,7 @@ if calculate_transport:
         if load_data:
             V_fft, V_real = V_fft_load[n, :, :], V_real_load[n, :, :]
         elif dimension=='1d':
-            # V_real = gaussian_correlated_potential_1D_FFT(L, Nx, dis_strength, corr_length, vf)
+            V_real = gaussian_correlated_potential_1D_FFT(L, Nx, dis_strength, corr_length, vf)
             # V_real = potential_well_1D_smooth(x, L_lead, L_trans, L_well, V0, V1, smoothing_factor=1)
             # V_real = potential_well_1D(L, Nx, V0, V0, L/3, L/3)
             # V_real = potential_barrier(x, 30, -60, L/2, smoothing=0.1)
@@ -140,8 +140,7 @@ if calculate_transport:
     # Scattering states and transmission eigenvalues at the resonant energies
     logger_main.info('Calculating scattering states...')
     trans_eigenvalues = model_gauss.get_transmission_eigenvalues(fermi[E_resonance_index])[0]
-    scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states(fermi[E_resonance_index], theta,
-                                                                            initial_state=transmission_eigenval)
+    scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states(fermi[E_resonance_index], theta, initial_state=transmission_eigenval)
     scatt_density_up[0, :, :] = np.real(scatt_states_up[0, :, :] * scatt_states_up[0, :, :].conj())
     scatt_density_down[0, :, :] = np.real(scatt_states_down[0, :, :] * scatt_states_down[0, :, :].conj())
 
@@ -160,8 +159,7 @@ else:
     # Scattering states and transmission eigenvalues at the resonant energies
     logger_main.info('Calculating scattering states...')
     trans_eigenvalues = model_gauss.get_transmission_eigenvalues(fermi[E_resonance_index])[0]
-    scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states(fermi[E_resonance_index],
-                                                                theta, initial_state=transmission_eigenval)
+    scatt_states_up[0, :, :], scatt_states_down[0, :, :] = model_gauss.get_scattering_states(fermi[E_resonance_index], theta, initial_state=transmission_eigenval)
     scatt_density_up[0, :, :] = scatt_states_up[0, :, :] * scatt_states_up[0, :, :].conj()
     scatt_density_down[0, :, :] = scatt_states_down[0, :, :] * scatt_states_down[0, :, :].conj()
 
@@ -178,30 +176,30 @@ filepath = os.path.join('Data', filename)
 if save_data:
     logger_main.info('Storing data...')
     with h5py.File(filepath, 'w') as f:
-        store_my_data(f,                    "Conductance",             G)
-        store_my_data(f,                    "Potential_FFT",           V_fft_storage)
-        store_my_data(f,                    "Potential_xy",            V_real_storage)
-        store_my_data(f,                    "scatt_states_up",         scatt_states_up)
-        store_my_data(f,                    "scatt_states_down",       scatt_states_down)
-        attr_my_data(f["Conductance"],      "Date",                    str(date.today()))
-        attr_my_data(f["Conductance"],      "Code_path",               sys.argv[0])
-        attr_my_data(f["Conductance"],      "vf",                      vf)
-        attr_my_data(f["Conductance"],      "B_perp",                  B_perp)
-        attr_my_data(f["Conductance"],      "n_flux",                  n_flux)
-        attr_my_data(f["Conductance"],      "l_cutoff",                l_cutoff)
-        attr_my_data(f["Conductance"],      "corr_length",             corr_length)
-        attr_my_data(f["Conductance"],      "dis_strength",            dis_strength)
-        attr_my_data(f["Conductance"],      "radius",                  r)
-        attr_my_data(f["Conductance"],      "x0",                      x[0])
-        attr_my_data(f["Conductance"],      "xf",                      x[-1])
-        attr_my_data(f["Conductance"],      "Nx",                      Nx)
-        attr_my_data(f["Conductance"],      "Ntheta_fft",              Ntheta_fft)
-        attr_my_data(f["Conductance"],      "Ntheta_grid",             Ntheta_grid)
-        attr_my_data(f["Conductance"],      "N_samples",               N_samples)
-        attr_my_data(f["Conductance"],      "fermi0",                  fermi[0])
-        attr_my_data(f["Conductance"],      "fermif",                  fermi[-1])
-        attr_my_data(f["Conductance"],      "Nfermi",                  fermi.shape[0])
-        attr_my_data(f["scatt_states_up"],  "resIndex",                E_resonance_index)
+        store_my_data(f,                        "Conductance",             G)
+        store_my_data(f,                        "Potential_FFT",           V_fft_storage)
+        store_my_data(f,                        "Potential_xy",            V_real_storage)
+        store_my_data(f,                        "scatt_states_up",         scatt_states_up)
+        store_my_data(f,                        "scatt_states_down",       scatt_states_down)
+        attr_my_data(f["Conductance"],          "Date",                    str(date.today()))
+        attr_my_data(f["Conductance"],          "Code_path",               sys.argv[0])
+        attr_my_data(f["Conductance"],          "vf",                      vf)
+        attr_my_data(f["Conductance"],          "B_perp",                  B_perp)
+        attr_my_data(f["Conductance"],          "n_flux",                  n_flux)
+        attr_my_data(f["Conductance"],          "l_cutoff",                l_cutoff)
+        attr_my_data(f["Conductance"],          "corr_length",             corr_length)
+        attr_my_data(f["Conductance"],          "dis_strength",            dis_strength)
+        attr_my_data(f["Conductance"],          "radius",                  r)
+        attr_my_data(f["Conductance"],          "x0",                      x[0])
+        attr_my_data(f["Conductance"],          "xf",                      x[-1])
+        attr_my_data(f["Conductance"],          "Nx",                      Nx)
+        attr_my_data(f["Conductance"],          "Ntheta_fft",              Ntheta_fft)
+        attr_my_data(f["Conductance"],          "Ntheta_grid",             Ntheta_grid)
+        attr_my_data(f["Conductance"],          "N_samples",               N_samples)
+        attr_my_data(f["Conductance"],          "fermi0",                  fermi[0])
+        attr_my_data(f["Conductance"],          "fermif",                  fermi[-1])
+        attr_my_data(f["Conductance"],          "Nfermi",                  fermi.shape[0])
+        attr_my_data(f["scatt_states_up"],      "resIndex",                E_resonance_index)
 
 
 # %% Figures
@@ -266,9 +264,8 @@ if dimension=='1d':
     ax33.set(xticks=[0, int(L / 4), int(L / 2), int(3 * L / 4), L - 1], xticklabels=[0, int(L / 4), int(L / 2), int(3 * L / 4), L])
     ax33.tick_params(which='major', width=0.75, labelsize=15)
     ax33.tick_params(which='major', length=14, labelsize=15)
-    ax33.set_title(
-        " Gaussian correlated potential samples with $\\xi=$ {} nm, $K_V=$ {} and $N_x=$ {}".format(corr_length,
-                                                                                                    dis_strength, Nx))
+    ax33.set_title(" Gaussian correlated potential samples with $\\xi=$ {} nm, $K_V=$ {} and $N_x=$ {}".format
+                                                                                      (corr_length, dis_strength, Nx))
     # peaks = np.arange(1, 20, 2) * period / 4
     # for pos in peaks:
     #     ax33.plot(pos * np.ones((10, )), np.linspace(-300, 300, 10), '--m')
@@ -277,9 +274,8 @@ if dimension=='1d':
     sample = 0
     # N_lead, N_trans, N_well = int(Nx * (L_lead / L)), int(Nx * (L_trans / L)), int(Nx * (L_well / L))
     check_imaginary(scatt_density_up[sample, :, :])
-    density_plot = ax34.imshow(
-        np.real(scatt_density_up[sample, :, :]) / np.max(np.real(scatt_density_up[sample, :, :])), origin='lower',
-        cmap='plasma', vmin=0, vmax=1, aspect='auto')
+    density_plot = ax34.imshow(np.real(scatt_density_up[sample, :, :]) / np.max(np.real(scatt_density_up[sample, :, :])),
+                                                         origin='lower', cmap='plasma', vmin=0, vmax=1, aspect='auto')
     divider34 = make_axes_locatable(ax34)
     cax34 = divider34.append_axes("right", size="5%", pad=0.05)
     cbar34 = fig.colorbar(density_plot, cax=cax34, orientation='vertical')
@@ -287,8 +283,7 @@ if dimension=='1d':
     cbar34.ax.tick_params(which='major', length=14, labelsize=15)
     ax34.set_xlabel("$x$ [nm]", fontsize=20)
     ax34.set_ylabel("$r\\theta$ [nm]", fontsize=20)
-    ax34.set(xticks=[0, int(Nx / 4), int(Nx / 2), int(3 * Nx / 4), Nx - 1],
-             xticklabels=[0, int(L / 4), int(L / 2), int(3 * L / 4), L])
+    ax34.set(xticks=[0, int(Nx / 4), int(Nx / 2), int(3 * Nx / 4), Nx - 1], xticklabels=[0, int(L / 4), int(L / 2), int(3 * L / 4), L])
     ax34.set(yticks=[0, int(Ntheta_plot / 2), Ntheta_plot - 1], yticklabels=[0, int(pi * r), int(2 * pi * r)])
 
     ax34.tick_params(which='major', width=0.75, labelsize=15)

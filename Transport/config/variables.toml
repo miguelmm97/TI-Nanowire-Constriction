@@ -9,12 +9,12 @@ B_perp                   = 0.0                 # Perpendicular magnetic field in
 
 
 [disorder_potential]
-corr_length              = 10.0               # Correlation length in nm
+corr_length              = 10.0                # Correlation length in nm
 dis_strength             = 6.0                 # Disorder strength in vf / xi scale
 
 
 [geometry]
-r                        = 50.0                # Radius of the nanowire
+r                        = 20.0                # Radius of the nanowire
 L                        = 900.0               # Length of the system in nm
 Nx                       = 501                 # Number of points in the x grid for the FFT (and plotting) (must be odd for FFT)
 Ntheta_fft               = 301                 # Number of points in the theta grid for the FFT (not plotting) (must be odd for FFT)
@@ -23,18 +23,18 @@ default_Ntheta_plot      = 301                 # Default number of points in the
 
 [sim_specs]
 N_samples                 = 1                  # Number of disorder samples
-fermi_0                   = -20.0              # Initial value of the Fermi energy
-fermi_end                 = 40.0               # Final value of the Fermi energy
-fermi_length              = 3000               # Length of the Fermi array
-E_resonance_index         = 21                 # Index in the Fermi array where the resonant energy lies
+fermi_0                   = -50.0             # Initial value of the Fermi energy
+fermi_end                 = 50.0              # Final value of the Fermi energy
+fermi_length              = 10000              # Length of the Fermi array
+E_resonance_index         = 6059               # Index in the Fermi array where the resonant energy lies
 transmission_eigenval     = 0                  # Index of the transmitted eigenmoded array we pick as the scattering state
 
 
 [flags]
 load_data                 = true                # File from which to load data. If false no data is loaded
-save_data                 = true               # If true saves data in an automatically generated file 'ExperimentNUM.h5'
-load_file                 = 'Experiment133.h5'  # File to load if load_data is true
-calculate_transport       = true               # If true calculates the conductance of the nanostructure
+save_data                 = true                # If true saves data in an automatically generated file 'ExperimentNUM.h5'
+load_file                 = 'Gzoom_gauss.h5'        # File to load if load_data is true
+calculate_transport       = false               # If true calculates the conductance of the nanostructure
 dimension                 = '2d'                # If 1d sets Ntheta_fft to 1 but keeps a default value to plot
 
 
