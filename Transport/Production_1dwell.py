@@ -93,8 +93,8 @@ ax1_1.set_xlabel("$E_F$ [meV]", fontsize=10)
 ax1_1.set_ylabel("$G[2e^2/h]$",fontsize=10)
 ax1_1.plot(20 - gap * np.ones(10, ), np.linspace(0, 10, 10), '--', color='#00B5A1', alpha=0.5)
 ax1_1.plot(20 + gap * np.ones(10, ), np.linspace(0, 10, 10), '--', color='#00B5A1', alpha=0.5)
-ax1_1.text(20 - gap - 1, 3, '$\Delta E$', fontsize=10, rotation='vertical', color='#00B5A1', alpha=0.5)
-ax1_1.text(20 + gap + 1, 3,  '$\Delta E$', fontsize=10, rotation='vertical', color='#00B5A1', alpha=0.5)
+ax1_1.text(20 - gap - 3, 3, '$\Delta E_g$', fontsize=10, rotation='vertical', color='#00B5A1', alpha=0.5)
+ax1_1.text(20 + gap + 1, 3,  '$\Delta E_g$', fontsize=10, rotation='vertical', color='#00B5A1', alpha=0.5)
 
 # Inset showing a potential sample
 left, bottom, width, height = [0.55, 0.65, 0.3, 0.3]

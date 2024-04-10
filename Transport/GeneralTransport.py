@@ -380,8 +380,8 @@ else:
 
     # Potential sample
     sample = 0
-    density_plot = ax33.imshow(V_real_storage[sample, :, :], origin='lower', vmin=np.min(V_real_storage[sample, :, :]),
-                               vmax=np.max(V_real_storage[sample, :, :]), aspect='auto')
+    auxV = V_real_storage[sample, :, :] + np.abs(np.min(V_real_storage[sample, :, :]))
+    density_plot = ax33.imshow(np.log(auxV) / np.max(auxV), origin='lower', aspect='auto')
     divider33 = make_axes_locatable(ax33)
     cax33 = divider33.append_axes("right", size="5%", pad=0.05)
     cbar33 = fig.colorbar(density_plot, cax=cax33, orientation='vertical')

@@ -1,6 +1,6 @@
 [constants]
 vf                       = 330                 # Fermi velocity in meV nm
-l_cutoff                 = 20                  # Cutoff number modes
+l_cutoff                 = 30                  # Cutoff number modes
 
 
 [magnetic_field]
@@ -23,8 +23,8 @@ default_Ntheta_plot      = 301                 # Default number of points in the
 
 [sim_specs]
 N_samples                 = 1                  # Number of disorder samples
-fermi_0                   = -50.0             # Initial value of the Fermi energy
-fermi_end                 = 50.0              # Final value of the Fermi energy
+fermi_0                   = -50.0              # Initial value of the Fermi energy
+fermi_end                 = 50.0               # Final value of the Fermi energy
 fermi_length              = 10000              # Length of the Fermi array
 E_resonance_index         = 6059               # Index in the Fermi array where the resonant energy lies
 transmission_eigenval     = 0                  # Index of the transmitted eigenmoded array we pick as the scattering state
@@ -32,8 +32,8 @@ transmission_eigenval     = 0                  # Index of the transmitted eigenm
 
 [flags]
 load_data                 = true                # File from which to load data. If false no data is loaded
-save_data                 = true                # If true saves data in an automatically generated file 'ExperimentNUM.h5'
-load_file                 = 'Gzoom_gauss.h5'        # File to load if load_data is true
+save_data                 = false               # If true saves data in an automatically generated file 'ExperimentNUM.h5'
+load_file                 = 'Gzoom_gauss.h5'    # File to load if load_data is true
 calculate_transport       = false               # If true calculates the conductance of the nanostructure
 dimension                 = '2d'                # If 1d sets Ntheta_fft to 1 but keeps a default value to plot
 

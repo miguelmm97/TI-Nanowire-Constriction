@@ -90,8 +90,8 @@ ax1_1.set_xlabel("$E_F$ [meV]", fontsize=10)
 ax1_1.set_ylabel("$G[2e^2/h]$",fontsize=10)
 ax1_1.plot(20 - gap * np.ones(10, ), np.linspace(0, 10, 10), '--', color='#00B5A1', alpha=0.5)
 ax1_1.plot(20 + gap * np.ones(10, ), np.linspace(0, 10, 10), '--', color='#00B5A1', alpha=0.5)
-ax1_1.text(20 - gap - 1, 3, '$\Delta E$', fontsize=10, rotation='vertical', color='#00B5A1', alpha=0.5)
-ax1_1.text(20 + gap + 1, 3,  '$\Delta E$', fontsize=10, rotation='vertical', color='#00B5A1', alpha=0.5)
+ax1_1.text(20 - gap - 3, 3, '$\Delta E_g$', fontsize=10, rotation='vertical', color='#00B5A1', alpha=0.5)
+ax1_1.text(20 + gap + 1, 3,  '$\Delta E_g$', fontsize=10, rotation='vertical', color='#00B5A1', alpha=0.5)
 
 
 # Inset for the potential
@@ -135,7 +135,7 @@ fig1.savefig('fig5.pdf', format='pdf', backend='pgf')
 
 
 # Scattering states figure
-fig2 = plt.figure(figsize=(6, 6))
+fig2 = plt.figure(figsize=(6, 6.5))
 gs = GridSpec(6, 4, figure=fig2, wspace=0.5, hspace=0.5)
 ax1_2 = fig2.add_subplot(gs[0:2, 0:2])
 ax2_2 = fig2.add_subplot(gs[0:2, 2:4])
