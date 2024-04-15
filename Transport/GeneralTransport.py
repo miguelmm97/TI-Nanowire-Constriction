@@ -51,10 +51,31 @@ formatter = ColoredFormatter(
 stream_handler.setFormatter(formatter)
 logger_main.addHandler(stream_handler)
 
-# %% Initialise variables
+
+# %% Loading data
+
+# Import global variables from the .toml file
 variables = config.variables
 for key in variables:
     globals().update(variables[key])
+
+# Loading data
+outdir = "Data"
+if load_data_transport:
+    logger_main.info('Loading data from {}'.format(load_file_transport))
+    for file in os.listdir(outdir):
+        if file == load_file_transport:
+            file_path = os.path.join(outdir, file)
+            with h5py.File(file_path, 'r') as f:
+                datanode1     = f['Potential_xy']
+                datanode2     = f['Potential_FFT']
+                datanode3     = f['Conductance']
+                V_real_load   = datanode1[()]
+                V_fft_load    = datanode2[()]
+                G_load        = datanode3[()]
+
+
+# %% Initialise variables from the .toml file
 
 x                     = np.linspace(0, L, Nx)                                             # Discretised position
 Ntheta_grid           = Ntheta_fft if dimension=='2d' else 1                              # Grid for theta
@@ -68,23 +89,6 @@ scatt_states_up       = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.comp
 scatt_density_up      = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.complex128)   # Scattering states storage
 scatt_states_down     = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.complex128)   # Scattering states storage
 scatt_density_down    = np.zeros((N_samples, Ntheta_plot, Nx - 1), dtype=np.complex128)   # Scattering states storage
-
-
-# %% Loading possible data
-outdir = "Data"
-if load_data:
-    logger_main.info('Loading data from {}'.format(load_file))
-    for file in os.listdir(outdir):
-        if file == load_file:
-            file_path = os.path.join(outdir, file)
-            with h5py.File(file_path, 'r') as f:
-                datanode1     = f['Potential_xy']
-                datanode2     = f['Potential_FFT']
-                datanode3     = f['Conductance']
-                V_real_load   = datanode1[()]
-                V_fft_load    = datanode2[()]
-                G_load        = datanode3[()]
-
 
 # %% Transport Calculation
 start_time = time.time()
@@ -163,6 +167,7 @@ else:
     scatt_density_up[0, :, :] = scatt_states_up[0, :, :] * scatt_states_up[0, :, :].conj()
     scatt_density_down[0, :, :] = scatt_states_down[0, :, :] * scatt_states_down[0, :, :].conj()
 
+
 # Average conductance
 G_avg = np.mean(G, axis=0)
 time_lapse = time.time() - start_time
@@ -170,10 +175,10 @@ print(f'Time elapsed: {time_lapse:.2e}')
 
 # %% Data storage
 file_list = os.listdir('Data')
-expID = get_fileID(file_list)
+expID = get_fileID(file_list, common_name='Experiment')
 filename = '{}{}{}'.format('Experiment', expID, '.h5')
 filepath = os.path.join('Data', filename)
-if save_data:
+if save_data_transport:
     logger_main.info('Storing data...')
     with h5py.File(filepath, 'w') as f:
         store_my_data(f,                        "Conductance",             G)

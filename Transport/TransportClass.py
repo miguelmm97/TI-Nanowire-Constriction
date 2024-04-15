@@ -44,7 +44,7 @@ def addLoggingLevel(levelName, levelNum, methodName=None):
     setattr(logging, methodName, logToRoot)
 addLoggingLevel("TRACE", logging.DEBUG - 5)
 logger_transport = logging.getLogger('transport')
-logger_transport.setLevel(logging.INFO)
+logger_transport.setLevel(logging.ERROR)
 
 stream_handler = colorlog.StreamHandler()
 formatter = ColoredFormatter(
@@ -463,18 +463,18 @@ def lead_connecting_channel_potential(Nx, Ntheta, x, theta_vec, V1, V2, delta_th
 
 
 # Code work
-def get_fileID(file_list):
+def get_fileID(file_list, common_name='datafile'):
     expID = 0
     for file in file_list:
-        if file.startswith('Experiment') and file.endswith('.h5'):
-            stringID = file.split('Experiment')[1].split('.h5')[0]
+        if file.startswith(common_name) and file.endswith('.h5'):
+            stringID = file.split(common_name)[1].split('.h5')[0]
             ID = int(stringID)
             expID = max(ID, expID)
     return expID + 1
 
 def check_imaginary(array):
     for x in np.nditer(array):
-        if not np.imag(x) < 1e-15:
+        if not np.imag(x) < 2 * np.finfo(np.float64).eps:
             raise ValueError('Imaginary part is not negligible!')
 
 def store_my_data(file, name, data):
@@ -523,6 +523,9 @@ def set_size(width, fraction=1):
 
     return fig_dim
 
+
+
+
 @dataclass
 class transport:
     """ Transport calculations on 3dTI nanostructures based on their effective surface theory."""
@@ -543,6 +546,8 @@ class transport:
         self.modes = np.arange(-self.l_cutoff, self.l_cutoff + 1)
         self.Nmodes = len(self.modes)
         self.B_par = self.n_flux * phi0
+
+
 
     # Methods for creating the geometry of the transport region
     def add_nw(self, x0, xf, Vnm=None, n_points=None, r=None, w=None, h=None):
@@ -650,6 +655,8 @@ class transport:
                     self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
                 else:
                     self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
+
+
 
     # Methods for calculating transport-related quantities
     def get_transfer_matrix(self, E, x0, xf, dx, V, r, w, h, T=None, debug=False, **kwargs):
@@ -862,7 +869,7 @@ class transport:
             phi_x_leftmover = r2 @ phi_x_rightmover
             phi = np.concatenate((phi_x_rightmover, phi_x_leftmover))
 
-            logger_transport.info('Region: {}/{}, x:{:.2f} nm, iter time: {:.3f} s'.format(i, self.n_regions,
+            logger_transport.trace('Region: {}/{}, x:{:.2f} nm, iter time: {:.3f} s'.format(i, self.n_regions,
                                                     self.geometry[i]['x0'], time.time() - start_iter))
             if debug:
                 c1 = np.linalg.cond(np.eye(n_modes) - rp1 @ r2)
@@ -900,6 +907,22 @@ class transport:
         psi_scatt_up, psi_scatt_down = psi_scatt_up / norm_scatt, psi_scatt_down / norm_scatt
         return psi_scatt_up, psi_scatt_down
 
+    def get_participation_ratio(self, scatt_state, x, theta, delta_x=None, delta_theta=2 * pi, x0=0, theta0=0):
+
+        if delta_x is None: delta_x = self.L
+        dx, dtheta = (x[-1] - x[0]) / len(x), (theta[-1] - theta[0]) / len(theta)
+        Nx, Ntheta  = int(delta_x / dx), int(delta_theta / dtheta)
+        x_end = int((x0 - x[0]) / dx) + Nx
+        theta_end = int((theta0 - theta[0]) / dtheta) + Ntheta
+
+        scatt_state = scatt_state[:theta_end, :x_end]
+        psi_squared = scatt_state * np.conj(scatt_state)
+        check_imaginary(psi_squared)
+        psi_quartic = np.abs(psi_squared) ** 2
+        IPR = np.sum(psi_quartic) / np.abs(np.sum(psi_squared)) ** 2
+        return IPR
+
+    # Other methods
     def get_bands_nw(self, region, k_range):
         """
         Calculates the spectrum of the region indicated. It must be a nanowire, and it assumes translation invariance.
