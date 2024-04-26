@@ -2,7 +2,7 @@ import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from TransportClass import gaussian_correlated_potential_1D_FFT
+from Nanostructure import gaussian_correlated_potential_1D_FFT
 import time
 
 start_time = time.time()

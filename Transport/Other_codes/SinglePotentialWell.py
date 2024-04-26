@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
-from TransportClass import transport
+from Nanostructure import transport
 import time
 
 start_time = time.time()

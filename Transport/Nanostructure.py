@@ -1,7 +1,7 @@
 #%% Modules setup
 
 # Math
-from numpy import pi, ComplexWarning
+from numpy import pi
 from numpy.linalg import inv
 from scipy.linalg import expm, ishermitian, svd
 import numpy as np
@@ -18,33 +18,13 @@ import logging
 import colorlog
 from colorlog import ColoredFormatter
 
+# External modules
+from functions import check_imaginary
+
 
 #%% Logging setup
-def addLoggingLevel(levelName, levelNum, methodName=None):
-    if not methodName:
-        methodName = levelName.lower()
-
-    if hasattr(logging, levelName):
-        raise AttributeError("{} already defined in logging module".format(levelName))
-    if hasattr(logging, methodName):
-        raise AttributeError("{} already defined in logging module".format(methodName))
-    if hasattr(logging.getLoggerClass(), methodName):
-        raise AttributeError("{} already defined in Logger class".format(methodName))
-
-    def logForLevel(self, message, *args, **kwargs):
-        if self.isEnabledFor(levelNum):
-            self._log(levelNum, message, args, **kwargs)
-
-    def logToRoot(message, *args, **kwargs):
-        logging.log(levelNum, message, *args, **kwargs)
-
-    logging.addLevelName(levelNum, levelName)
-    setattr(logging, levelName, levelNum)
-    setattr(logging.getLoggerClass(), methodName, logForLevel)
-    setattr(logging, methodName, logToRoot)
-addLoggingLevel("TRACE", logging.DEBUG - 5)
-logger_transport = logging.getLogger('transport')
-logger_transport.setLevel(logging.ERROR)
+loger_nano = logging.getLogger('transport')
+loger_nano.setLevel(logging.ERROR)
 
 stream_handler = colorlog.StreamHandler()
 formatter = ColoredFormatter(
@@ -64,7 +44,7 @@ formatter = ColoredFormatter(
     style='%'
 )
 stream_handler.setFormatter(formatter)
-logger_transport.addHandler(stream_handler)
+loger_nano.addHandler(stream_handler)
 
 #%% Module
 
@@ -95,7 +75,6 @@ def geom_nc(x, x1, x2, r1, r2, sigma=None):
 
 def geom_cons(x, x1, x2, x3, r1, r2, sigma):
     return geom_nc(x, x1, x2, r1, r2, sigma) + geom_nc(-x + x2 + x3, x1, x2, r1, r2, sigma) - r2
-
 
 
 # Transfer and scattering
@@ -141,7 +120,7 @@ def M_EV(modes, dx, dR, E, vf, Vnm=None):
 def transfer_to_scattering(T, debug=False):
     n_modes = int(T.shape[0] / 2)
     if debug:
-        logger_transport.debug('Checking flow conservation...')
+        loger_nano.debug('Checking flow conservation...')
         if not np.allclose(T.T.conj() @ np.kron(sigma_z, np.eye(n_modes)) @ T, np.kron(sigma_z, np.eye(n_modes)),
                            atol=1e-13):
             raise ValueError('Current flow not preserved by the transfer matrix!')
@@ -153,7 +132,7 @@ def transfer_to_scattering(T, debug=False):
     inv_rp = T[0: n_modes, n_modes:]
 
     if debug:
-        logger_transport.debug('Checking invertibility conditions in the transfer matrix...')
+        loger_nano.debug('Checking invertibility conditions in the transfer matrix...')
         if np.linalg.cond(inv_t) > 10 or np.linalg.cond(inv_tp) > 10:
             raise ValueError('Non-invertible matrix encountered in the transfer matrix. cond(inv_t): {}, '
                              'cond(inv_tp): {}'.format(np.linalg.cond(inv_t), np.linalg.cond(inv_tp)))
@@ -166,7 +145,7 @@ def transfer_to_scattering(T, debug=False):
     S = np.block([[r, tp], [t, rp]])
 
     if debug:
-        logger_transport.debug('Checking unitarity of scattering matrix...')
+        loger_nano.debug('Checking unitarity of scattering matrix...')
         if not np.allclose(S.T.conj() @ S, np.eye(len(S)), atol=1e-13):
             raise ValueError('Unitarity of the scattering matrix not preserved!')
 
@@ -175,7 +154,7 @@ def transfer_to_scattering(T, debug=False):
 def scattering_to_transfer(S, debug=False):
     n_modes = int(S.shape[0] / 2)
     if debug:
-        logger_transport.debug('Checking unitarity of the scattering matrix...')
+        loger_nano.debug('Checking unitarity of the scattering matrix...')
         if not np.allclose(S.T.conj() @ S, np.eye(len(S)), atol=1e-13):
             raise ValueError('Unitarity of the scattering matrix not preserved!')
 
@@ -186,7 +165,7 @@ def scattering_to_transfer(S, debug=False):
     tp = S[0: n_modes, n_modes:]
 
     if debug:
-        logger_transport.debug('Checking condition numbers for scattering...')
+        loger_nano.debug('Checking condition numbers for scattering...')
         if np.linalg.cond(t) > 10 or np.linalg.cond(tp) > 10:
             raise ValueError('Non-invertible matrix encountered in the transfer matrix. cond(t): {}, '
                              'cond(tp): {}'.format(np.linalg.cond(t), np.linalg.cond(tp)))
@@ -200,7 +179,7 @@ def scattering_to_transfer(S, debug=False):
     T = np.block([[T_00, T_01], [T_10, T_11]])
 
     if debug:
-        logger_transport.debug('Checking current flow conservation...')
+        loger_nano.debug('Checking current flow conservation...')
         if not np.allclose(T.T.conj() @ np.kron(sigma_z, np.eye(n_modes)) @ T, np.kron(sigma_z, np.eye(n_modes)),
                            atol=1e-8):
             raise ValueError('Current flow not preserved by the transfer matrix!')
@@ -209,7 +188,7 @@ def scattering_to_transfer(S, debug=False):
 
 def scat_product(s1, s2, debug=False):
     if debug:
-        logger_transport.debug('Checking size and unitarity preconditions of the scattering matrix...')
+        loger_nano.debug('Checking size and unitarity preconditions of the scattering matrix...')
         if s1.shape != s2.shape:
             raise ValueError(" Different size for scattering matrices")
         if not np.allclose(s1.T.conj() @ s1, np.eye(len(s1)), atol=1e-8):
@@ -226,7 +205,7 @@ def scat_product(s1, s2, debug=False):
 
     Id = np.eye(n_modes)
     if debug:
-        logger_transport.debug('Checking condition numbers for the scattering product...')
+        loger_nano.debug('Checking condition numbers for the scattering product...')
         if np.linalg.cond(Id - r1p @ r2) > 10 or np.linalg.cond(Id - r2 @ r1p) > 10:
             raise ValueError('Non-invertible matrix encountered in the transfer matrix. cond(1-r1p r2): {}, '
                              'cond(1-r2r1p): {}'.format(np.linalg.cond(Id - r1p @ r2), np.linalg.cond(Id - r2 @ r1p)))
@@ -240,7 +219,7 @@ def scat_product(s1, s2, debug=False):
     scat_matrix = np.block([[r, tp], [t, rp]])
 
     if debug:
-        logger_transport.debug('Checking unitarity of the resulting scattering matrix...')
+        loger_nano.debug('Checking unitarity of the resulting scattering matrix...')
         if not np.allclose(scat_matrix.T.conj() @ scat_matrix, np.eye(len(scat_matrix)), atol=1e-8):
             raise ValueError('Unitarity of the scattering matrix not preserved!')
 
@@ -262,7 +241,6 @@ def transport_mode(x, theta, r, n, E, vf, spin='up', lead=True):
         return norm * transverse_part * longitudinal_part
     else:
         return norm * transverse_part
-
 
 
 # Different types of potentials
@@ -460,99 +438,44 @@ def lead_connecting_channel_potential(Nx, Ntheta, x, theta_vec, V1, V2, delta_th
     return V_real, V_fft
 
 
-
-
-# Code work
-def get_fileID(file_list, common_name='datafile'):
-    expID = 0
-    for file in file_list:
-        if file.startswith(common_name) and file.endswith('.h5'):
-            stringID = file.split(common_name)[1].split('.h5')[0]
-            ID = int(stringID)
-            expID = max(ID, expID)
-    return expID + 1
-
-def check_imaginary(array):
-    for x in np.nditer(array):
-        if not np.imag(x) < 2 * np.finfo(np.float64).eps:
-            raise ValueError('Imaginary part is not negligible!')
-
-def store_my_data(file, name, data):
-    try:
-        file.create_dataset(name=name, data=data)
-    except Exception as ex:
-        logger_transport.error(f'Failed to write {name} because of exception: {ex}')
-
-def attr_my_data(dataset, attr_name, attr):
-    try:
-        dataset.attrs.create(name=attr_name, data=attr)
-    except Exception as ex:
-        logger_transport.error(f'Failed to write {attr_name} because of exception: {ex}')
-
-def set_size(width, fraction=1):
-    """Set figure dimensions to avoid scaling in LaTeX.
-
-    Parameters
-    ----------
-    width: float
-            Document textwidth or columnwidth in pts
-    fraction: float, optional
-            Fraction of the width which you wish the figure to occupy
-
-    Returns
-    -------
-    fig_dim: tuple
-            Dimensions of figure in inches
-    """
-    # Width of figure (in pts)
-    fig_width_pt = width * fraction
-
-    # Convert from pt to inches
-    inches_per_pt = 1 / 72.27
-
-    # Golden ratio to set aesthetic figure height
-    # https://disq.us/p/2940ij3
-    golden_ratio = (5**.5 - 1) / 2
-
-    # Figure width in inches
-    fig_width_in = fig_width_pt * inches_per_pt
-    # Figure height in inches
-    fig_height_in = fig_width_in * golden_ratio
-
-    fig_dim = (fig_width_in, fig_height_in)
-
-    return fig_dim
-
-
-
-
 @dataclass
-class transport:
+class Nanostructure:
     """ Transport calculations on 3dTI nanostructures based on their effective surface theory."""
 
-    L: float       # Total length of the nanowire in nm
-    rad: float     # Radius of the nanowire (only meaningful if constant radius)
-    vf: float      # Fermi velocity in meV nm
-    B_perp: float  # Magnetic field perpendicular to the axis of the nanostructure
-    n_flux: float  # Magnetic field parallel to the axis of the nanostructure
-    l_cutoff: int  # Cutoff in the number of angular momentum modes
-    geometry = {}
+    # Parameters of the model
+    L:        float             # Total length of the nanowire in nm
+    rad:      float             # Radius of the nanowire (only meaningful if constant radius)
+    vf:       float             # Fermi velocity in meV nm
+    B_perp:   float             # Magnetic field perpendicular to the axis of the nanostructure
+    n_flux:   float             # Magnetic field parallel to the axis of the nanostructure
+    l_cutoff: int               # Cutoff in the number of angular momentum modes
+
+    # Arrays defining the geometry
+    r_vec:      np.ndarray      # Array of radii through the nanostructure
+    x_vec:      np.ndarray      # Array of x positions through the nanostructure
+    theta_vec:  np.ndarray      # Array of theta angles through the nanostructure
+    V_vec:      np.ndarray      # Potential (FFT along theta) through the nanostructure
+    n_vec       = None          # Array with the number of points use to dicretise each region of the nanostructure
+    sigma_vec   = None          # Array with smoothing parameters for each region of the nanostructure
+
+    # Class fields
     n_regions = 0
-    S_tot = None
-    Nmodes: int = field(init=False)
-    modes: np.ndarray = field(init=False)
+    geometry  = {}
+    Nmodes:   int = field(init=False)
+    modes:    np.ndarray = field(init=False)
 
     def __post_init__(self):
         self.modes = np.arange(-self.l_cutoff, self.l_cutoff + 1)
         self.Nmodes = len(self.modes)
         self.B_par = self.n_flux * phi0
-
-
+        if self.sigma_vec is None: self.sigma_vec = np.repeat(None, self.x_vec.shape[0])
+        if self.n_vec is None: self.n_vec = np.repeat(None, self.x_vec.shape[0])
+        self.build_geometry()
 
     # Methods for creating the geometry of the transport region
     def add_nw(self, x0, xf, Vnm=None, n_points=None, r=None, w=None, h=None):
 
-        logger_transport.trace('Adding nanowire to the geometry...')
+        loger_nano.trace('Adding nanowire to the geometry...')
 
         if self.n_regions != 0 and x0 != self.geometry[self.n_regions - 1]['xf']:
             raise ValueError('Regions dont match')
@@ -575,7 +498,7 @@ class transport:
 
     def add_nc(self, x0, xf, n_points, Vnm=None, sigma=None, r1=None, r2=None, w1=None, w2=None, h1=None, h2=None):
 
-        logger_transport.trace('Adding nanocone to the geometry...')
+        loger_nano.trace('Adding nanocone to the geometry...')
 
         if self.n_regions != 0 and x0 != self.geometry[self.n_regions - 1]['xf']:
             raise ValueError('Regions dont match')
@@ -601,7 +524,7 @@ class transport:
 
         self.n_regions += 1
 
-    def build_geometry(self, r_vec, x_vec, V_vec, n_vec=None, sigma_vec=None):
+    def build_geometry(self):
         """
         Builds the geometry of the nanostructure from specifying the radius, length and potential distribution of the
         different sections. Once this distribution has been given, it creates a nanocone for consecutive points x, x+1
@@ -635,31 +558,37 @@ class transport:
 
         """
 
-        logger_transport.trace('Building the complete geometry of the wire...')
+        loger_nano.trace('Building the complete geometry of the wire...')
 
-        if sigma_vec is None: sigma_vec = np.repeat(None, x_vec.shape[0])
-        if n_vec is None: n_vec = np.repeat(None, x_vec.shape[0])
-
-        if len(V_vec.shape) == 1:
+        # Rotation invariant potential
+        if len(self.V_vec.shape) == 1:
             for i, (r, x, V, n, sigma) in enumerate(
-                    zip(r_vec[:-1], x_vec[:-1], V_vec[:-1], n_vec[:-1], sigma_vec[:-1])):
-                if r != r_vec[i + 1]:
-                    self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
-                else:
-                    self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
+                    zip(self.r_vec[:-1], self.x_vec[:-1], self.V_vec[:-1], self.n_vec[:-1], self.sigma_vec[:-1])):
 
-        elif len(V_vec.shape) == 2:
+                # Nanocone section
+                if r != self.r_vec[i + 1]:
+                    self.add_nc(x, self.x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
+                # Nanowire section
+                else:
+                    self.add_nw(x, self.x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
+
+        # Broken rotation invariance
+        elif len(self.V_vec.shape) == 2:
             for i, (r, x, V, n, sigma) in enumerate(
-                    zip(r_vec[:-1], x_vec[:-1], V_vec[:, :-1].T, n_vec[:-1], sigma_vec[:-1])):
-                if r != r_vec[i + 1]:
-                    self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
+                    zip(self.r_vec[:-1], self.x_vec[:-1], self.V_vec[:, :-1].T, self.n_vec[:-1], self.sigma_vec[:-1])):
+
+                # Nanocone section
+                if r != self.r_vec[i + 1]:
+                    self.add_nc(x, self.x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
+                # Nanowire section
                 else:
-                    self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
-
-
+                    self.add_nw(x, self.x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
 
     # Methods for calculating transport-related quantities
-    def get_transfer_matrix(self, E, x0, xf, dx, V, r, w, h, T=None, debug=False, **kwargs):
+    def get_transfer_matrix(self, E, n_region, T=None, debug=False):
+
+        key_list = ('x0', 'xf', 'dx', 'V', 'r', 'w', 'h')
+        x0, xf, dx, V, r, w, h = [self.geometry[n_region][key] for key in key_list]
 
         M = M_EV(self.modes, dx, 0, E, self.vf, V)
         M += M_theta(self.modes, dx, r, 0, w, h, B_par=self.B_par)
@@ -667,7 +596,7 @@ class transport:
         T = expm(M * (xf - x0) / dx) if T is None else expm(M * (xf - x0) / dx) @ T
 
         if debug:
-            logger_transport.debug('Checking current flow conservation...')
+            loger_nano.debug('Checking current flow conservation...')
             n_modes = int(T.shape[0] / 2)
             if not np.allclose(T.T.conj() @ np.kron(sigma_z, np.eye(n_modes)) @ T, np.kron(sigma_z, np.eye(n_modes)),
                                atol=1e-13):
@@ -675,15 +604,16 @@ class transport:
 
         return T
 
-    def get_scattering_matrix(self, E, region_type, x0, xf, dx, n_points, V, r, w, h, S=None, backwards=False,
-                              debug=False):
+    def get_scattering_matrix(self, E, n_region, S=None, backwards=False, debug=False):
+
+        region_type, n_points = [self.geometry[n_region][key] for key in ('region_type', 'n_points')]
 
         # For nanowires
         if region_type == 'nw':
 
             # No need for discretisation
             if n_points is None:
-                T = self.get_transfer_matrix(E, x0, xf, dx, V, r, w, h)
+                T = self.get_transfer_matrix(E, n_region)
                 if S is None:
                     S = transfer_to_scattering(T)
                 elif backwards:
@@ -692,7 +622,7 @@ class transport:
                     S = scat_product(S, transfer_to_scattering(T))
 
                 if debug:
-                    logger_transport.debug('Checking for overflow in the scattering matrix...')
+                    loger_nano.debug('Checking for overflow in the scattering matrix...')
                     if np.isnan(S).any():
                         raise OverflowError('Need for discretisation, overflow in S!')
 
@@ -707,11 +637,11 @@ class transport:
 
         S = None
         for i in range(0, self.n_regions):
-            S = self.get_scattering_matrix(E, **self.geometry[i], S=S)
+            S = self.get_scattering_matrix(E, i, S=S)
 
         if debug:
             if np.abs(E) < 1 and self.L < 150:
-                logger_transport.debug('Performing analytic checks on the conductance...')
+                loger_nano.debug('Performing analytic checks on the conductance...')
                 t_analytic = np.diag(1 / np.cosh(self.L * (self.modes - 0.5) / self.rad))
                 r_analytic = np.diag(
                     - np.sinh(self.L * (self.modes - 0.5) / self.rad) / np.cosh(self.L * (self.modes - 0.5) / self.rad))
@@ -730,12 +660,12 @@ class transport:
 
     def get_transmission_eigenvalues(self, E, get_max=False, debug=False):
 
-        logger_transport.trace('Calculating transmission eigenvalues...')
+        loger_nano.trace('Calculating transmission eigenvalues...')
 
         # Full scattering matrix
         S = None
         for i in range(0, self.n_regions):
-            S = self.get_scattering_matrix(E, **self.geometry[i], S=S)
+            S = self.get_scattering_matrix(E, i, S=S)
 
         # Transmission eigenvalues
         t = S[self.Nmodes:, 0: self.Nmodes]
@@ -743,7 +673,7 @@ class transport:
         eigval_tt, eigvec_tt = np.linalg.eigh(tt)
 
         if debug:
-            logger_transport.debug('Performing checks on the transmission eigenvalues...')
+            loger_nano.debug('Performing checks on the transmission eigenvalues...')
             if not ishermitian(tt, atol=1e-15):
                 raise ValueError('Transmission matrix not hermitian!')
             if not np.allclose(np.sort(eigval_tt), np.sort(np.linalg.eig(t @ t.T.conj())[0])):
@@ -752,18 +682,18 @@ class transport:
                 raise ValueError('Transmission eigenvalues do not amount for the conductance at this energy!')
 
             if np.abs(E) < 1 and self.L < 150:
-                logger_transport.debug('Performing analytic check for transmission eigenvalues...')
+                loger_nano.debug('Performing analytic check for transmission eigenvalues...')
                 tt_analytic = (1 / np.cosh(self.L * (self.modes - 0.5) / self.rad)) ** 2
                 if not np.allclose(tt_analytic, eigval_tt):
                     raise ValueError('Failed analytical test for transmission eigenvalues.')
 
-            logger_transport.debug('Comparing eigenvalues and vectors of t and T...')
+            loger_nano.debug('Comparing eigenvalues and vectors of t and T...')
             eigval_t, eigvec_t = np.linalg.eig(t)
-            logger_transport.debug('T is normal: ', np.allclose(tt, t @ t.T.conj()))
+            loger_nano.debug('T is normal: ', np.allclose(tt, t @ t.T.conj()))
             for i in range(len(eigval_t)):
-                logger_transport.debug('Eigenvalue: {}, Scalar product between v_t and V_T: {}'.format(i, np.dot(eigvec_t[:, i], eigvec_tt[:, i])))
+                loger_nano.debug('Eigenvalue: {}, Scalar product between v_t and V_T: {}'.format(i, np.dot(eigvec_t[:, i], eigvec_tt[:, i])))
             for i in range(len(eigval_t)):
-                logger_transport.debug('Eigenvalue t ^2: {}, Eigenvalue T: {}'.format(np.sort(eigval_t * eigval_t.conj())[i], np.sort(eigval_tt)[i]))
+                loger_nano.debug('Eigenvalue t ^2: {}, Eigenvalue T: {}'.format(np.sort(eigval_t * eigval_t.conj())[i], np.sort(eigval_tt)[i]))
 
         # Return
         if get_max:
@@ -774,12 +704,12 @@ class transport:
 
     def get_transmitted_state(self, E, state=0, debug=False):
 
-        logger_transport.trace('Getting transmitted state...')
+        loger_nano.trace('Getting transmitted state...')
 
         # Full scattering matrix
         S = None
         for i in range(0, self.n_regions):
-            S = self.get_scattering_matrix(E, **self.geometry[i], S=S)
+            S = self.get_scattering_matrix(E, i, S=S)
 
         # Transmission matrix SVD (Get rid of numerical noise to improve SVD precision)
         t = S[self.Nmodes:, 0: self.Nmodes]
@@ -788,8 +718,7 @@ class transport:
 
         if debug:
             t_aux = t - np.diag(np.diag(t))
-            logger_transport.debug('Maximum off-diagonal element in t: {}'.format(np.max(np.abs(t_aux))))
-
+            loger_nano.debug('Maximum off-diagonal element in t: {}'.format(np.max(np.abs(t_aux))))
 
         # Ordering the singular values squared from max to min
         idx = np.flip((sing_val_t ** 2).argsort())
@@ -802,7 +731,7 @@ class transport:
         phi_inL = v_t_dagger[:, state]
 
         if debug:
-            logger_transport.debug('Performing checks on the transmission spectrum...')
+            loger_nano.debug('Performing checks on the transmission spectrum...')
             tt = t.T.conj() @ t
             u_tt, sing_val_tt, v_tt = svd(tt, compute_uv=True, lapack_driver='gesvd')
             tt_eigval = np.linalg.eigvalsh(tt)
@@ -813,27 +742,27 @@ class transport:
 
         return phi_inL, phi_outR
 
-    def get_scattering_states(self, E, theta_vec, initial_state=0, debug=False):
+    def get_scattering_states(self, E, initial_state=0, debug=False):
 
-        logger_transport.trace('Calculating scattering states...')
+        loger_nano.trace('Calculating scattering states...')
 
         #  Preallocation
-        psi_scatt_up = np.zeros((len(theta_vec), self.n_regions), dtype=np.complex128)
-        psi_scatt_down = np.zeros((len(theta_vec), self.n_regions), dtype=np.complex128)
+        psi_scatt_up = np.zeros((len(self.theta_vec), self.n_regions), dtype=np.complex128)
+        psi_scatt_down = np.zeros((len(self.theta_vec), self.n_regions), dtype=np.complex128)
         S_forward_storage = np.zeros((2 * self.Nmodes, 2 * self.Nmodes, self.n_regions), dtype=np.complex128)
         S_backwards_storage = np.zeros((2 * self.Nmodes, 2 * self.Nmodes, self.n_regions), dtype=np.complex128)
 
         # Full scattering matrix
-        logger_transport.trace('Calculating forward and backwards scattering matrices...')
+        loger_nano.trace('Calculating forward and backwards scattering matrices...')
         S1, S2 = None, None
         for i in range(0, self.n_regions):
-            S1 = self.get_scattering_matrix(E, **self.geometry[i], S=S1)
-            S2 = self.get_scattering_matrix(E, **self.geometry[self.n_regions - 1 - i], S=S2, backwards=True)
+            S1 = self.get_scattering_matrix(E, i, S=S1)
+            S2 = self.get_scattering_matrix(E, self.n_regions - 1 - i, S=S2, backwards=True)
             S_forward_storage[:, :, i] = S1
             S_backwards_storage[:, :, i] = S2
 
         if debug:
-            logger_transport.debug('Performing analytic checks on transmission and reflection...')
+            loger_nano.debug('Performing analytic checks on transmission and reflection...')
             if np.abs(E) < 1 and self.L < 150:
                 t_analytic = np.diag(1 / np.cosh(self.L * (self.modes - 0.5) / self.rad))
                 r_analytic = np.diag(- np.sinh(self.L * (self.modes - 0.5) / self.rad) / np.cosh(
@@ -847,14 +776,14 @@ class transport:
                 if not np.allclose(S2[self.Nmodes:, 0: self.Nmodes], t_analytic):
                     raise ValueError('Analytic check failed for transmission matrix 2!')
 
-            logger_transport.debug('Comparing scattering matrices forwards and backwards...')
+            loger_nano.debug('Comparing scattering matrices forwards and backwards...')
             if not np.allclose(S_forward_storage[:, :, -1], S_backwards_storage[:, :, -1]):
                 raise ValueError('Forward and backwards scattering matrices do not coincide!')
 
         # State at the leads
         phi_inL_lead, phi_outR_lead = self.get_transmitted_state(E, state=initial_state)
 
-        logger_transport.trace('Calculating distribution of scattering states...')
+        loger_nano.trace('Calculating distribution of scattering states...')
         n_modes = len(phi_inL_lead)
         for i in range(0, self.n_regions):
             start_iter = time.time()
@@ -869,7 +798,7 @@ class transport:
             phi_x_leftmover = r2 @ phi_x_rightmover
             phi = np.concatenate((phi_x_rightmover, phi_x_leftmover))
 
-            logger_transport.trace('Region: {}/{}, x:{:.2f} nm, iter time: {:.3f} s'.format(i, self.n_regions,
+            loger_nano.trace('Region: {}/{}, x:{:.2f} nm, iter time: {:.3f} s'.format(i, self.n_regions,
                                                     self.geometry[i]['x0'], time.time() - start_iter))
             if debug:
                 c1 = np.linalg.cond(np.eye(n_modes) - rp1 @ r2)
@@ -879,43 +808,55 @@ class transport:
                 max_eig = np.max(np.abs(np.linalg.eig(np.linalg.inv(np.eye(n_modes) - rp1 @ r2) @ t1)[0]))
                 max_phi1 = np.max(np.abs(phi_x_rightmover))
                 max_phi2 = np.max(np.abs(phi_x_leftmover))
-                logger_transport.debug('Performing checks on the scattering states...')
-                logger_transport.debug('Iter time: {:.2e}'.format(time.time() - start_iter))
-                logger_transport.debug('Condition number for 1 - rp1r2: {}, det(1-rp1r2): {}'.format(c1, det1))
-                logger_transport.debug('det(inv(1-rp1r2)): {}'.format(det2))
-                logger_transport.debug('det(inv(1-rp1r2)t1): {}'.format(det3))
-                logger_transport.debug('max eigenvalue for inv(1-rp1r2)t1: {}'.format(max_eig))
-                logger_transport.debug('max value phi_x+: {}'.format(max_phi1))
-                logger_transport.debug('max value phi_x-: {}'.format(max_phi2))
+                loger_nano.debug('Performing checks on the scattering states...')
+                loger_nano.debug('Iter time: {:.2e}'.format(time.time() - start_iter))
+                loger_nano.debug('Condition number for 1 - rp1r2: {}, det(1-rp1r2): {}'.format(c1, det1))
+                loger_nano.debug('det(inv(1-rp1r2)): {}'.format(det2))
+                loger_nano.debug('det(inv(1-rp1r2)t1): {}'.format(det3))
+                loger_nano.debug('max eigenvalue for inv(1-rp1r2)t1: {}'.format(max_eig))
+                loger_nano.debug('max value phi_x+: {}'.format(max_phi1))
+                loger_nano.debug('max value phi_x-: {}'.format(max_phi2))
 
             # Scattering states for the slab
-            for j, theta in enumerate(theta_vec):
+            for j, theta in enumerate(self.theta_vec):
                 trans_mode = transport_mode(self.geometry[i]['x0'], theta, self.geometry[i]['r'], self.modes, E,
                                             self.vf, lead=False)
                 psi_scatt_up[j, i] = np.dot(trans_mode, phi[: self.Nmodes])
                 psi_scatt_down[j, i] = np.dot(trans_mode, phi[self.Nmodes:])
 
         if debug:
-            logger_transport.debug('Comparing overlaps of transmitted and transferred states...')
+            loger_nano.debug('Comparing overlaps of transmitted and transferred states...')
             phi1 = phi_outR_lead / np.linalg.norm(phi_outR_lead)
             phi2 = phi[:self.Nmodes].conj() / np.linalg.norm(phi[:self.Nmodes])
             dot = np.abs(np.dot(phi1, phi2))
             if dot < 0.9:
-                logger_transport.warning('Transferred and transmitted states do not coincide. Overlap: {}'.format(dot))
+                loger_nano.warning('Transferred and transmitted states do not coincide. Overlap: {}'.format(dot))
 
         norm_scatt = np.sqrt(np.sum(psi_scatt_up * psi_scatt_up.conj() + psi_scatt_down * psi_scatt_down.conj()))
         psi_scatt_up, psi_scatt_down = psi_scatt_up / norm_scatt, psi_scatt_down / norm_scatt
         return psi_scatt_up, psi_scatt_down
 
-    def get_participation_ratio(self, scatt_state, x, theta, delta_x=None, delta_theta=2 * pi, x0=0, theta0=0):
+    def get_participation_ratio(self, scatt_state, delta_x=None, delta_theta=2 * pi, x0=0, theta0=0):
 
+        # Range and location of the selected region to calculate the IPR over
         if delta_x is None: delta_x = self.L
-        dx, dtheta = (x[-1] - x[0]) / len(x), (theta[-1] - theta[0]) / len(theta)
+        dx = (self.x_vec[-1] - self.x_vec[0]) / len(self.x_vec)
+        dtheta = (self.theta_vec[-1] - self.theta_vec[0]) / len(self.theta_vec)
         Nx, Ntheta  = int(delta_x / dx), int(delta_theta / dtheta)
-        x_end = int((x0 - x[0]) / dx) + Nx
-        theta_end = int((theta0 - theta[0]) / dtheta) + Ntheta
+        x_end = int((self.x_vec[x0] - self.x_vec[0]) / dx) + Nx
+        theta_end = int((self.theta_vec[theta0] - self.theta_vec[0]) / dtheta) + Ntheta
+        if x_end > len(self.x_vec):
+            raise ValueError('Endpoint along x direction too large')
 
-        scatt_state = scatt_state[:theta_end, :x_end]
+        # Select scattering state for that range and location
+        if theta_end > len(self.theta_vec):
+            theta_end = theta_end - len(self.theta_vec)
+            index_theta = np.concatenate((np.arange(0, theta_end), np.arange(theta0, len(self.theta_vec) - 1)))
+            scatt_state = scatt_state[index_theta, :x_end]
+        else:
+            scatt_state = scatt_state[:theta_end, :x_end]
+
+        # IPR calculation
         psi_squared = scatt_state * np.conj(scatt_state)
         check_imaginary(psi_squared)
         psi_quartic = np.abs(psi_squared) ** 2
@@ -1017,3 +958,507 @@ class transport:
                     Vnm += np.diag(np.repeat(V[i], self.modes.shape[0] - i), i)
 
             return Vnm
+
+
+
+
+
+
+# class transport:
+#     """ Transport calculations on 3dTI nanostructures based on their effective surface theory."""
+#
+#     L: float       # Total length of the nanowire in nm
+#     rad: float     # Radius of the nanowire (only meaningful if constant radius)
+#     vf: float      # Fermi velocity in meV nm
+#     B_perp: float  # Magnetic field perpendicular to the axis of the nanostructure
+#     n_flux: float  # Magnetic field parallel to the axis of the nanostructure
+#     l_cutoff: int  # Cutoff in the number of angular momentum modes
+#     geometry = {}
+#     n_regions = 0
+#     S_tot = None
+#     Nmodes: int = field(init=False)
+#     modes: np.ndarray = field(init=False)
+#
+#     def __post_init__(self):
+#         self.modes = np.arange(-self.l_cutoff, self.l_cutoff + 1)
+#         self.Nmodes = len(self.modes)
+#         self.B_par = self.n_flux * phi0
+#
+#
+#     # Methods for creating the geometry of the transport region
+#     def add_nw(self, x0, xf, Vnm=None, n_points=None, r=None, w=None, h=None):
+#
+#         loger_nano.trace('Adding nanowire to the geometry...')
+#
+#         if self.n_regions != 0 and x0 != self.geometry[self.n_regions - 1]['xf']:
+#             raise ValueError('Regions dont match')
+#         if r is None and (w is None or h is None):
+#             raise ValueError('Need to specify r or (w, h)')
+#
+#         self.geometry[self.n_regions] = {
+#             'region_type': 'nw',
+#             'x0': x0,
+#             'xf': xf,
+#             'n_points': n_points,
+#             'V': Vnm,
+#             'w': w,
+#             'h': h,
+#             'r': (w + h) / pi if r is None else r,
+#             'dx': 100 if n_points is None else abs(xf - x0) / n_points,
+#         }
+#
+#         self.n_regions += 1
+#
+#     def add_nc(self, x0, xf, n_points, Vnm=None, sigma=None, r1=None, r2=None, w1=None, w2=None, h1=None, h2=None):
+#
+#         loger_nano.trace('Adding nanocone to the geometry...')
+#
+#         if self.n_regions != 0 and x0 != self.geometry[self.n_regions - 1]['xf']:
+#             raise ValueError('Regions dont match')
+#         if r1 is None and (w1 is None or h1 is None):
+#             raise ValueError('Need to specify r or (w, h)')
+#         if r2 is None and (w2 is None or h2 is None):
+#             raise ValueError('Need to specify r or (w, h)')
+#
+#         r1 = (w1 + h1) / pi if r1 is None else r1
+#         r2 = (w2 + h2) / pi if r2 is None else r2
+#         x = np.linspace(x0, xf, n_points)
+#         self.geometry[self.n_regions] = {
+#             'region_type': 'nw',
+#             'x0': x0,
+#             'xf': xf,
+#             'dx': abs(xf - x0) / n_points,
+#             'n_points': n_points,
+#             'V': Vnm,
+#             'r': geom_nc(x, x0, xf, r1, r2, sigma),
+#             'w': None if w1 is None or w2 is None else geom_nc(x, x0, xf, w1, w2, sigma),
+#             'h': None if h1 is None or h2 is None else geom_nc(x, x0, xf, h1, h2, sigma)
+#         }
+#
+#         self.n_regions += 1
+#
+#     def build_geometry(self, r_vec, x_vec, V_vec, n_vec=None, sigma_vec=None):
+#         """
+#         Builds the geometry of the nanostructure from specifying the radius, length and potential distribution of the
+#         different sections. Once this distribution has been given, it creates a nanocone for consecutive points x, x+1
+#         differing in radius, and a nanowire if they have the same radius.
+#
+#         The idea is that the vectors r, x, and V give a discretisation of radii and potentials, so that they act as a
+#         discretisation in which between every two points the potential is constant and the radius changes infinitesimally
+#         With this we can build any geometry.
+#
+#         Furthermore, the Npoints vector allows us to perform the transport calculation by further discretising that region
+#         when calculating the transfer matrix.
+#
+#         OBS!: The potential V can be both rotationally symmetric or non-rotationally symmetric. In the former case we
+#         just have to include a discretised vector, each entry corresponding to V(x). In the latter, for each x entry we
+#         have to include a vector along the radial direction. The entries of this vector are the FFT of V(theta, x), for
+#         fixed x. We do it in this way because then we need to do the FT of V(theta) to get Vnm in the transfer matrix.
+#
+#         Params:
+#         ------
+#
+#         r:         {np.array(floats)}   Discretisation of the radius of the nanostructure as a function o x
+#         x:         {np.array(floats)}   Discretisation of x
+#         V:         {np.array(floats)}   Discretisation of the potential as a function of x.
+#         n_vec:     {np.array(floats)}   Number of points in the transport calculation for each individual region
+#         sigma_vec: {np.array(floats)}   Smoothing factor for each individual region
+#
+#
+#         Return:
+#         -------
+#         None, but updates self. geometry
+#
+#         """
+#
+#         loger_nano.trace('Building the complete geometry of the wire...')
+#
+#         if sigma_vec is None: sigma_vec = np.repeat(None, x_vec.shape[0])
+#         if n_vec is None: n_vec = np.repeat(None, x_vec.shape[0])
+#
+#         if len(V_vec.shape) == 1:
+#             for i, (r, x, V, n, sigma) in enumerate(
+#                     zip(r_vec[:-1], x_vec[:-1], V_vec[:-1], n_vec[:-1], sigma_vec[:-1])):
+#                 if r != r_vec[i + 1]:
+#                     self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
+#                 else:
+#                     self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
+#
+#         elif len(V_vec.shape) == 2:
+#             for i, (r, x, V, n, sigma) in enumerate(
+#                     zip(r_vec[:-1], x_vec[:-1], V_vec[:, :-1].T, n_vec[:-1], sigma_vec[:-1])):
+#                 if r != r_vec[i + 1]:
+#                     self.add_nc(x, x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
+#                 else:
+#                     self.add_nw(x, x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
+#
+#
+#
+#     # Methods for calculating transport-related quantities
+#     def get_transfer_matrix(self, E, x0, xf, dx, V, r, w, h, T=None, debug=False, **kwargs):
+#
+#         M = M_EV(self.modes, dx, 0, E, self.vf, V)
+#         M += M_theta(self.modes, dx, r, 0, w, h, B_par=self.B_par)
+#         M += M_Ax(self.modes, dx, w, h, B_perp=self.B_perp)
+#         T = expm(M * (xf - x0) / dx) if T is None else expm(M * (xf - x0) / dx) @ T
+#
+#         if debug:
+#             loger_nano.debug('Checking current flow conservation...')
+#             n_modes = int(T.shape[0] / 2)
+#             if not np.allclose(T.T.conj() @ np.kron(sigma_z, np.eye(n_modes)) @ T, np.kron(sigma_z, np.eye(n_modes)),
+#                                atol=1e-13):
+#                 raise ValueError('Current flow not preserved by the transfer matrix!')
+#
+#         return T
+#
+#     def get_scattering_matrix(self, E, region_type, x0, xf, dx, n_points, V, r, w, h, S=None, backwards=False,
+#                               debug=False):
+#
+#         # For nanowires
+#         if region_type == 'nw':
+#
+#             # No need for discretisation
+#             if n_points is None:
+#                 T = self.get_transfer_matrix(E, x0, xf, dx, V, r, w, h)
+#                 if S is None:
+#                     S = transfer_to_scattering(T)
+#                 elif backwards:
+#                     S = scat_product(transfer_to_scattering(T), S)
+#                 else:
+#                     S = scat_product(S, transfer_to_scattering(T))
+#
+#                 if debug:
+#                     loger_nano.debug('Checking for overflow in the scattering matrix...')
+#                     if np.isnan(S).any():
+#                         raise OverflowError('Need for discretisation, overflow in S!')
+#
+#             else:
+#                 raise NotImplementedError('Part of the code for discretising nanowires needs to be implemented')
+#         else:
+#             raise NotImplementedError('Part of the code for nanocones needs to be implemented')
+#
+#         return S
+#
+#     def get_Landauer_conductance(self, E, debug=False):
+#
+#         S = None
+#         for i in range(0, self.n_regions):
+#             S = self.get_scattering_matrix(E, **self.geometry[i], S=S)
+#
+#         if debug:
+#             if np.abs(E) < 1 and self.L < 150:
+#                 loger_nano.debug('Performing analytic checks on the conductance...')
+#                 t_analytic = np.diag(1 / np.cosh(self.L * (self.modes - 0.5) / self.rad))
+#                 r_analytic = np.diag(
+#                     - np.sinh(self.L * (self.modes - 0.5) / self.rad) / np.cosh(self.L * (self.modes - 0.5) / self.rad))
+#                 if not np.allclose(S[0: self.Nmodes, 0: self.Nmodes], r_analytic):
+#                     raise ValueError('Analytic check failed for reflection matrix!')
+#                 if not np.allclose(S[self.Nmodes:, 0: self.Nmodes], t_analytic):
+#                     raise ValueError('Analytic check failed for transmission matrix!')
+#
+#         t = S[self.Nmodes:, 0: self.Nmodes]
+#         G = np.trace(t.T.conj() @ t)
+#
+#         if debug:
+#             check_imaginary(G)
+#
+#         return np.real(G)
+#
+#     def get_transmission_eigenvalues(self, E, get_max=False, debug=False):
+#
+#         loger_nano.trace('Calculating transmission eigenvalues...')
+#
+#         # Full scattering matrix
+#         S = None
+#         for i in range(0, self.n_regions):
+#             S = self.get_scattering_matrix(E, **self.geometry[i], S=S)
+#
+#         # Transmission eigenvalues
+#         t = S[self.Nmodes:, 0: self.Nmodes]
+#         tt = t.T.conj() @ t
+#         eigval_tt, eigvec_tt = np.linalg.eigh(tt)
+#
+#         if debug:
+#             loger_nano.debug('Performing checks on the transmission eigenvalues...')
+#             if not ishermitian(tt, atol=1e-15):
+#                 raise ValueError('Transmission matrix not hermitian!')
+#             if not np.allclose(np.sort(eigval_tt), np.sort(np.linalg.eig(t @ t.T.conj())[0])):
+#                 raise ValueError('Transmission eigenvalues different for t^\dagger t and t t^\dagger!')
+#             if not np.allclose(np.sum(eigval_tt), np.trace(tt)):
+#                 raise ValueError('Transmission eigenvalues do not amount for the conductance at this energy!')
+#
+#             if np.abs(E) < 1 and self.L < 150:
+#                 loger_nano.debug('Performing analytic check for transmission eigenvalues...')
+#                 tt_analytic = (1 / np.cosh(self.L * (self.modes - 0.5) / self.rad)) ** 2
+#                 if not np.allclose(tt_analytic, eigval_tt):
+#                     raise ValueError('Failed analytical test for transmission eigenvalues.')
+#
+#             loger_nano.debug('Comparing eigenvalues and vectors of t and T...')
+#             eigval_t, eigvec_t = np.linalg.eig(t)
+#             loger_nano.debug('T is normal: ', np.allclose(tt, t @ t.T.conj()))
+#             for i in range(len(eigval_t)):
+#                 loger_nano.debug('Eigenvalue: {}, Scalar product between v_t and V_T: {}'.format(i, np.dot(eigvec_t[:, i], eigvec_tt[:, i])))
+#             for i in range(len(eigval_t)):
+#                 loger_nano.debug('Eigenvalue t ^2: {}, Eigenvalue T: {}'.format(np.sort(eigval_t * eigval_t.conj())[i], np.sort(eigval_tt)[i]))
+#
+#         # Return
+#         if get_max:
+#             index = np.where(eigval_tt == np.max(eigval_tt))[0][0]
+#             return eigval_tt, eigvec_tt, np.max(eigval_tt), eigvec_tt[:, index]
+#         else:
+#             return eigval_tt, eigvec_tt
+#
+#     def get_transmitted_state(self, E, state=0, debug=False):
+#
+#         loger_nano.trace('Getting transmitted state...')
+#
+#         # Full scattering matrix
+#         S = None
+#         for i in range(0, self.n_regions):
+#             S = self.get_scattering_matrix(E, **self.geometry[i], S=S)
+#
+#         # Transmission matrix SVD (Get rid of numerical noise to improve SVD precision)
+#         t = S[self.Nmodes:, 0: self.Nmodes]
+#         t[np.abs(t) < 2 * np.finfo(np.float64).eps] = 0
+#         u_t, sing_val_t, v_t = svd(t, compute_uv=True, full_matrices=False, lapack_driver='gesvd')
+#
+#         if debug:
+#             t_aux = t - np.diag(np.diag(t))
+#             loger_nano.debug('Maximum off-diagonal element in t: {}'.format(np.max(np.abs(t_aux))))
+#
+#
+#         # Ordering the singular values squared from max to min
+#         idx = np.flip((sing_val_t ** 2).argsort())
+#         sing_val_t = sing_val_t[idx]
+#         u_t = u_t[:, idx]
+#         v_t_dagger = v_t.T.conj()[:, idx]
+#
+#         # Getting the particular state associated
+#         phi_outR = sing_val_t[state] * u_t[:, state]
+#         phi_inL = v_t_dagger[:, state]
+#
+#         if debug:
+#             loger_nano.debug('Performing checks on the transmission spectrum...')
+#             tt = t.T.conj() @ t
+#             u_tt, sing_val_tt, v_tt = svd(tt, compute_uv=True, lapack_driver='gesvd')
+#             tt_eigval = np.linalg.eigvalsh(tt)
+#             if not np.allclose(np.sort(sing_val_t ** 2), np.sort(sing_val_tt)):
+#                 raise ValueError('Singular values of t^\dagger t do not coincide with singular values of t squared!')
+#             if not np.allclose(np.sort(sing_val_tt), np.sort(tt_eigval)):
+#                 raise ValueError('Singular values of t^\dagger t do not coincide with eigenvalues!')
+#
+#         return phi_inL, phi_outR
+#
+#     def get_scattering_states(self, E, theta_vec, initial_state=0, debug=False):
+#
+#         loger_nano.trace('Calculating scattering states...')
+#
+#         #  Preallocation
+#         psi_scatt_up = np.zeros((len(theta_vec), self.n_regions), dtype=np.complex128)
+#         psi_scatt_down = np.zeros((len(theta_vec), self.n_regions), dtype=np.complex128)
+#         S_forward_storage = np.zeros((2 * self.Nmodes, 2 * self.Nmodes, self.n_regions), dtype=np.complex128)
+#         S_backwards_storage = np.zeros((2 * self.Nmodes, 2 * self.Nmodes, self.n_regions), dtype=np.complex128)
+#
+#         # Full scattering matrix
+#         loger_nano.trace('Calculating forward and backwards scattering matrices...')
+#         S1, S2 = None, None
+#         for i in range(0, self.n_regions):
+#             S1 = self.get_scattering_matrix(E, **self.geometry[i], S=S1)
+#             S2 = self.get_scattering_matrix(E, **self.geometry[self.n_regions - 1 - i], S=S2, backwards=True)
+#             S_forward_storage[:, :, i] = S1
+#             S_backwards_storage[:, :, i] = S2
+#
+#         if debug:
+#             loger_nano.debug('Performing analytic checks on transmission and reflection...')
+#             if np.abs(E) < 1 and self.L < 150:
+#                 t_analytic = np.diag(1 / np.cosh(self.L * (self.modes - 0.5) / self.rad))
+#                 r_analytic = np.diag(- np.sinh(self.L * (self.modes - 0.5) / self.rad) / np.cosh(
+#                     self.L * (self.modes - 0.5) / self.rad))
+#                 if not np.allclose(S1[0: self.Nmodes, 0: self.Nmodes], r_analytic):
+#                     raise ValueError('Analytic check failed for reflection matrix 1!')
+#                 if not np.allclose(S1[self.Nmodes:, 0: self.Nmodes], t_analytic):
+#                     raise ValueError('Analytic check failed for transmission matrix 1!')
+#                 if not np.allclose(S2[0: self.Nmodes, 0: self.Nmodes], r_analytic):
+#                     raise ValueError('Analytic check failed for reflection matrix 2!')
+#                 if not np.allclose(S2[self.Nmodes:, 0: self.Nmodes], t_analytic):
+#                     raise ValueError('Analytic check failed for transmission matrix 2!')
+#
+#             loger_nano.debug('Comparing scattering matrices forwards and backwards...')
+#             if not np.allclose(S_forward_storage[:, :, -1], S_backwards_storage[:, :, -1]):
+#                 raise ValueError('Forward and backwards scattering matrices do not coincide!')
+#
+#         # State at the leads
+#         phi_inL_lead, phi_outR_lead = self.get_transmitted_state(E, state=initial_state)
+#
+#         loger_nano.trace('Calculating distribution of scattering states...')
+#         n_modes = len(phi_inL_lead)
+#         for i in range(0, self.n_regions):
+#             start_iter = time.time()
+#
+#             # Scattering forward and backwards
+#             t1 = S_forward_storage[:, :, i][n_modes:, 0: n_modes]
+#             rp1 = S_forward_storage[:, :, i][n_modes:, n_modes:]
+#             r2 = S_backwards_storage[:, :, self.n_regions - 1 - i][0: n_modes, 0: n_modes]
+#
+#             # Scattering states at position x
+#             phi_x_rightmover = (np.linalg.inv(np.eye(n_modes) - rp1 @ r2) @ t1) @ phi_inL_lead
+#             phi_x_leftmover = r2 @ phi_x_rightmover
+#             phi = np.concatenate((phi_x_rightmover, phi_x_leftmover))
+#
+#             loger_nano.trace('Region: {}/{}, x:{:.2f} nm, iter time: {:.3f} s'.format(i, self.n_regions,
+#                                                     self.geometry[i]['x0'], time.time() - start_iter))
+#             if debug:
+#                 c1 = np.linalg.cond(np.eye(n_modes) - rp1 @ r2)
+#                 det1 = np.abs(np.linalg.det(np.eye(n_modes) - rp1 @ r2))
+#                 det2 = np.abs(np.linalg.det(np.linalg.inv(np.eye(n_modes) - rp1 @ r2)))
+#                 det3 = np.abs(np.linalg.det(np.linalg.inv(np.eye(n_modes) - rp1 @ r2) @ t1))
+#                 max_eig = np.max(np.abs(np.linalg.eig(np.linalg.inv(np.eye(n_modes) - rp1 @ r2) @ t1)[0]))
+#                 max_phi1 = np.max(np.abs(phi_x_rightmover))
+#                 max_phi2 = np.max(np.abs(phi_x_leftmover))
+#                 loger_nano.debug('Performing checks on the scattering states...')
+#                 loger_nano.debug('Iter time: {:.2e}'.format(time.time() - start_iter))
+#                 loger_nano.debug('Condition number for 1 - rp1r2: {}, det(1-rp1r2): {}'.format(c1, det1))
+#                 loger_nano.debug('det(inv(1-rp1r2)): {}'.format(det2))
+#                 loger_nano.debug('det(inv(1-rp1r2)t1): {}'.format(det3))
+#                 loger_nano.debug('max eigenvalue for inv(1-rp1r2)t1: {}'.format(max_eig))
+#                 loger_nano.debug('max value phi_x+: {}'.format(max_phi1))
+#                 loger_nano.debug('max value phi_x-: {}'.format(max_phi2))
+#
+#             # Scattering states for the slab
+#             for j, theta in enumerate(theta_vec):
+#                 trans_mode = transport_mode(self.geometry[i]['x0'], theta, self.geometry[i]['r'], self.modes, E,
+#                                             self.vf, lead=False)
+#                 psi_scatt_up[j, i] = np.dot(trans_mode, phi[: self.Nmodes])
+#                 psi_scatt_down[j, i] = np.dot(trans_mode, phi[self.Nmodes:])
+#
+#         if debug:
+#             loger_nano.debug('Comparing overlaps of transmitted and transferred states...')
+#             phi1 = phi_outR_lead / np.linalg.norm(phi_outR_lead)
+#             phi2 = phi[:self.Nmodes].conj() / np.linalg.norm(phi[:self.Nmodes])
+#             dot = np.abs(np.dot(phi1, phi2))
+#             if dot < 0.9:
+#                 loger_nano.warning('Transferred and transmitted states do not coincide. Overlap: {}'.format(dot))
+#
+#         norm_scatt = np.sqrt(np.sum(psi_scatt_up * psi_scatt_up.conj() + psi_scatt_down * psi_scatt_down.conj()))
+#         psi_scatt_up, psi_scatt_down = psi_scatt_up / norm_scatt, psi_scatt_down / norm_scatt
+#         return psi_scatt_up, psi_scatt_down
+#
+#     def get_participation_ratio(self, scatt_state, x, theta, delta_x=None, delta_theta=2 * pi, x0=0, theta0=0):
+#
+#         # Range and location of the selected region to calculate the IPR over
+#         if delta_x is None: delta_x = self.L
+#         dx, dtheta = (x[-1] - x[0]) / len(x), (theta[-1] - theta[0]) / len(theta)
+#         Nx, Ntheta  = int(delta_x / dx), int(delta_theta / dtheta)
+#         x_end = int((x[x0] - x[0]) / dx) + Nx
+#         theta_end = int((theta[theta0] - theta[0]) / dtheta) + Ntheta
+#         if x_end > len(x):
+#             raise ValueError('Endpoint along x direction too large')
+#
+#         # Ipr calculation
+#         if theta_end > len(theta):
+#             theta_end = theta_end - len(theta)
+#             index_theta = np.concatenate((np.arange(0, theta_end), np.arange(theta0, len(theta) - 1)))
+#             scatt_state = scatt_state[index_theta, :x_end]
+#         else:
+#             scatt_state = scatt_state[:theta_end, :x_end]
+#         psi_squared = scatt_state * np.conj(scatt_state)
+#         check_imaginary(psi_squared)
+#         psi_quartic = np.abs(psi_squared) ** 2
+#         IPR = np.sum(psi_quartic) / np.abs(np.sum(psi_squared)) ** 2
+#         return IPR
+#
+#     # Other methods
+#     def get_bands_nw(self, region, k_range):
+#         """
+#         Calculates the spectrum of the region indicated. It must be a nanowire, and it assumes translation invariance.
+#
+#         Params:
+#         ------
+#         region:       {int} Number of the region of the geometry in which we want to calculate the bands
+#         k_range: {np.array} Range of momenta within which we calculate the bands
+#
+#         Returns:
+#         -------
+#         E: {np.array(len(2Nmodes, len(k)} Energy bands
+#         V:        {np.array(len(2Nmodes)} Bottom of the bands i.e. centrifugal potential
+#         """
+#
+#         # Geometry
+#         if self.geometry[region]['type'] != 'nw': raise ValueError('Can only calculate spectrum in a nanowire!')
+#         w = self.geometry[region]['w']  # Width
+#         h = self.geometry[region]['h']  # Height
+#         r = self.geometry[region]['r']  # Radius
+#         P = 2 * (w + h) if r is None else 2 * pi * r  # Perimeter
+#
+#         # Parallel gauge field: hbar vf 2pi/P (n-1/2 + A) * sigma_y
+#         A_theta = 0
+#         if self.B_par != 0:
+#             Ctheta = 0.5 * (nm ** 2) * e * self.B_par / hbar
+#             A_theta = Ctheta * r ** 2 if (w is None or h is None) else Ctheta * (w * h) / pi
+#         Mtheta = np.diag((2 * pi / P) * (self.modes - (1 / 2) + A_theta))
+#         Hxtheta = self.vf * np.kron(Mtheta, sigma_y)
+#
+#         # Perpendicular gauge field: e vf < n | A_x | m > * sigma_x
+#         if self.B_perp != 0:
+#             r_aspect = w / (w + h)
+#             Cx = (nm ** 2 / hbar) * e * self.B_perp * P / pi ** 2
+#             Ax = np.zeros((self.Nmodes, self.Nmodes), dtype=np.complex128)
+#             i = 0
+#             for n1 in self.modes:
+#                 j = 0
+#                 for n2 in self.modes:
+#                     if (n1 - n2) % 2 != 0:
+#                         m = n1 - n2
+#                         Ax[i, j] = Cx * ((-1) ** ((m + 1) / 2)) * np.sin(m * pi * r_aspect / 2) / m ** 2
+#                     j += 1
+#                 i += 1
+#             Hxtheta += self.vf * np.kron(Ax, sigma_x)
+#
+#         # Hamiltonian and energy bands
+#         i = 0
+#         E = np.zeros((2 * self.Nmodes, len(k_range)))
+#         for k in k_range:
+#             Mk = (self.vf * k).repeat(self.Nmodes)  # hbar vf k
+#             Hk = np.kron(np.diag(Mk), sigma_x)  # hbar vf k * sigma_x
+#             H = Hk + Hxtheta  # H(k)
+#             E[:, i] = np.linalg.eigvalsh(H)  # E(k)
+#             idx = E[:, i].argsort()  # Ordering the energy bands at k
+#             E[:, i] = E[idx, i]  # Ordered E(k)
+#             i += 1
+#
+#         # Bottom of the bands (centrifugal potential)
+#         V = np.linalg.eigvalsh(Hxtheta)
+#         idx = V.argsort()
+#         V = V[idx]
+#
+#         return E, V
+#
+#     def get_potential_matrix(self, V):
+#         """
+#         Computes the potential matrix used in the transfer matrix approach (part M_EV in the transfer matrix).
+#
+#         If V is a number (rotational symmetry) the potential matrix becomes trivial. If V is a vector, it assumes the
+#         different entries are the FFT of V(theta, x) for fixed x.
+#
+#         Params:
+#         ------
+#         V:         {np.array(floats)}   Potential at the point x (either number or vector with angular components.)
+#
+#         Return:
+#         -------
+#         Vnm:       {np.array(floats)}   Potential matrix that is used in the transfer matrix approach.
+#
+#         """
+#
+#         try:
+#             return V * np.eye(2 * self.l_cutoff + 1)
+#         except ValueError:
+#             Vnm = np.zeros((self.modes.shape[0], self.modes.shape[0]), dtype='complex128')
+#             for i in range(self.modes.shape[0]):
+#                 if i == 0:
+#                     Vnm += np.diag(np.repeat(V[0], self.modes.shape[0]), 0)
+#                 else:
+#                     Vnm += np.diag(np.repeat(V[-i], self.modes.shape[0] - i), - i)
+#                     Vnm += np.diag(np.repeat(V[i], self.modes.shape[0] - i), i)
+#
+#             return Vnm

@@ -4,7 +4,7 @@ import time
 import random
 import matplotlib.pyplot as plt
 from numpy import pi
-from TransportClass import transport
+from Nanostructure import transport
 
 
 parser = argparse.ArgumentParser(description='Argument parser for Transport_RotSymPotential.py')
