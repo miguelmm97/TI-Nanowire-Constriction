@@ -85,14 +85,14 @@ def store_my_data(file, name, data):
     try:
         file.create_dataset(name=name, data=data)
     except Exception as ex:
-        logger_functions.error(f'Failed to write {name} because of exception: {ex}')
+        logger_functions.warning(f'Failed to write {name} because of exception: {ex}')
 
 
 def attr_my_data(dataset, attr_name, attr):
     try:
         dataset.attrs.create(name=attr_name, data=attr)
     except Exception as ex:
-        logger_functions.error(f'Failed to write {attr_name} because of exception: {ex}')
+        logger_functions.warning(f'Failed to write {attr_name} because of exception: {ex}')
 
 
 def load_my_data(file_list, directory):

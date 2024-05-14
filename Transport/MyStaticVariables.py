@@ -4,6 +4,7 @@ These are supposed to be type const parameters, so they should be initialised on
 The main should be able to call them but never change their value again at runtime.
 """
 from numpy import array
+import h5py
 from dataclasses import dataclass, field, fields
 
 
@@ -88,4 +89,11 @@ class MyStaticVariables:
         return self
 
 
+    def load_data_to_var(self, file_path):
 
+
+        with h5py.File(file_path, 'r') as f:
+            for fld in fields(self):
+                for dataset in f['Parameters'].keys():
+                    if dataset == fld.name:
+                        setattr(self, fld.name, f['Parameters'][dataset][()])

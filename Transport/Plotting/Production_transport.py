@@ -13,7 +13,7 @@ from functions import load_my_data, load_my_attr, check_imaginary
 
 
 #%% Loading data
-file_list = ['Experiment184.h5']
+file_list = ['Experiment195.h5']
 
 # Old storage scheme
 # data_dict = load_my_data(file_list, '../Data')
@@ -42,24 +42,25 @@ file_list = ['Experiment184.h5']
 # New storage scheme
 data_dict = load_my_data(file_list, '../Data')
 
-dimension            = data_dict[file_list[0]]['Parameters']['dimension']
-r                    = data_dict[file_list[0]]['Parameters']['r']
-L                    = data_dict[file_list[0]]['Parameters']['L']
-vf                   = data_dict[file_list[0]]['Parameters']['vf']
-Nx                   = data_dict[file_list[0]]['Parameters']['Nx']
-corr_length          = data_dict[file_list[0]]['Parameters']['corr_length']
-dis_strength         = data_dict[file_list[0]]['Parameters']['dis_strength']
-E_resonance_index    = data_dict[file_list[0]]['Parameters']['E_resonance_index']
-Ntheta_plot          = data_dict[file_list[0]]['Parameters']['Ntheta_fft']
-G                    = data_dict[file_list[0]]['Simulation']['G']
-V_real               = data_dict[file_list[0]]['Simulation']['Potential_xy']
-scatt_density_up      = data_dict[file_list[0]]['Simulation']['scatt_density_up']
-scatt_density_down    = data_dict[file_list[0]]['Simulation']['scatt_density_down']
-trans_eigenvalues    = data_dict[file_list[0]]['Simulation']['trans_eigenvalues']
-fermi                = data_dict[file_list[0]]['Simulation']['fermi']
-x                    = data_dict[file_list[0]]['Simulation']['x']
+dimension              = data_dict[file_list[0]]['Parameters']['dimension']
+r                      = data_dict[file_list[0]]['Parameters']['r']
+L                      = data_dict[file_list[0]]['Parameters']['L']
+vf                     = data_dict[file_list[0]]['Parameters']['vf']
+Nx                     = data_dict[file_list[0]]['Parameters']['Nx']
+corr_length            = data_dict[file_list[0]]['Parameters']['corr_length']
+dis_strength           = data_dict[file_list[0]]['Parameters']['dis_strength']
+E_resonance_index      = data_dict[file_list[0]]['Parameters']['E_resonance_index']
+Ntheta_plot            = data_dict[file_list[0]]['Parameters']['Ntheta_fft']
+G                      = data_dict[file_list[0]]['Simulation']['G']
+V_real                 = data_dict[file_list[0]]['Simulation']['Potential_xy']
+scatt_density_up       = data_dict[file_list[0]]['Simulation']['scatt_density_up']
+scatt_density_down     = data_dict[file_list[0]]['Simulation']['scatt_density_down']
+trans_eigenvalues      = data_dict[file_list[0]]['Simulation']['trans_eigenvalues']
+transmission_eigenval  = data_dict[file_list[0]]['Parameters']['transmission_eigenval']
+fermi                  = data_dict[file_list[0]]['Simulation']['fermi']
+x                      = data_dict[file_list[0]]['Simulation']['x']
 
-
+scatt_density_tot = scatt_density_up + scatt_density_down
 
 
 # %% Figures
@@ -113,7 +114,6 @@ if dimension=='1d':
 
 
     # Potential sample
-    sample = 0
     ax33.plot(x, V_real, color='#6495ED')
     ax33.set_xlim(x[0], x[-1])
     ax33.set_ylim(-4 * Vstd_th_1d, 4 * Vstd_th_1d)
@@ -129,9 +129,9 @@ if dimension=='1d':
 
     # Distribution of scattering states
     # N_lead, N_trans, N_well = int(Nx * (L_lead / L)), int(Nx * (L_trans / L)), int(Nx * (L_well / L))
-    check_imaginary(scatt_density_up[sample, :, :])
-    density_plot = ax34.imshow(np.real(scatt_density_up[sample, :, :]) / np.max(np.real(scatt_density_up[sample, :, :])),
-                                                         origin='lower', cmap='plasma', vmin=0, vmax=1, aspect='auto')
+    check_imaginary(scatt_density_up)
+    density_plot = ax34.imshow(np.real(scatt_density_up) / np.max(np.real(scatt_density_up)),
+                                origin='lower', cmap='plasma', vmin=0, vmax=1, aspect='auto')
     divider34 = make_axes_locatable(ax34)
     cax34 = divider34.append_axes("right", size="5%", pad=0.05)
     cbar34 = fig.colorbar(density_plot, cax=cax34, orientation='vertical')
@@ -170,11 +170,9 @@ if dimension=='1d':
     # ax35.set_title('Transmission eigenvalues for $E=$ {:.2f} meV'.format(fermi[E_resonance_index]), fontsize=20)
 
     # Distribution of scattering states in logscale
-    sample = 0
-    check_imaginary(scatt_density_up[sample, :, :])
-    density_plot = ax36.imshow(
-        np.log(np.real(scatt_density_up[sample, :, :]) / np.max(np.real(scatt_density_up[sample, :, :]))),
-        origin='lower', cmap='plasma', aspect='auto', vmax=0, vmin=-8)
+    check_imaginary(scatt_density_up)
+    density_plot = ax36.imshow(np.log(np.real(scatt_density_up) / np.max(np.real(scatt_density_up))),
+                                      origin='lower', cmap='plasma', aspect='auto', vmax=0, vmin=-8)
     divider36 = make_axes_locatable(ax36)
     cax36 = divider36.append_axes("right", size="5%", pad=0.05)
     cbar36 = fig.colorbar(density_plot, cax=cax36, orientation='vertical')
@@ -256,8 +254,9 @@ else:
     #                                      fermi[E_resonance_index] + 2 * gap], colors="black", linewidths=2)
 
     # Distribution of scattering states
-    check_imaginary(scatt_density_up)
-    density_plot = ax34.imshow(np.real(scatt_density_up) / np.max(np.real(scatt_density_up)), cmap='plasma', vmin=0, vmax=1, aspect='auto')
+    check_imaginary(scatt_density_tot)
+    density_plot = ax34.imshow(np.real(scatt_density_tot) / np.max(np.real(scatt_density_tot)),
+                               cmap='plasma', vmin=0, vmax=1, aspect='auto')
     divider34 = make_axes_locatable(ax34)
     cax34 = divider34.append_axes("right", size="5%", pad=0.05)
     cbar34 = fig.colorbar(density_plot, cax=cax34, orientation='vertical')
@@ -277,18 +276,18 @@ else:
     #                         linewidths=2)
 
     # Transmission eigenvalues
-    # ax35.plot(np.arange(len(trans_eigenvalues)), np.sort(trans_eigenvalues), 'o', color=color_list[2])
-    # ax35.plot(len(trans_eigenvalues) - transmission_eigenval - 1,
-    #           np.sort(trans_eigenvalues)[len(trans_eigenvalues) - transmission_eigenval - 1], 'o', color='red')
-    # ax35.set_yscale('log')
-    # ax35.set_ylim(10e-16, 10)
-    # ax35.yaxis.set_label_position("right")
-    # ax35.yaxis.tick_right()
-    # ax35.set_xlabel("Transmission eigenvalues", fontsize=20)
-    # ax35.set_ylabel("eig$(t^\dagger t)$", fontsize=20)
-    # ax35.tick_params(which='major', width=0.75, labelsize=20)
-    # ax35.tick_params(which='major', length=14, labelsize=20)
-    # ax35.set_title('Transmission eigenvalues for $E=$ {:.2f} meV'.format(fermi[E_resonance_index]), fontsize=20)
+    ax35.plot(np.arange(len(trans_eigenvalues)), np.sort(trans_eigenvalues), 'o', color=color_list[2])
+    ax35.plot(len(trans_eigenvalues) - transmission_eigenval - 1,
+              np.sort(trans_eigenvalues)[len(trans_eigenvalues) - transmission_eigenval - 1], 'o', color='red')
+    ax35.set_yscale('log')
+    ax35.set_ylim(10e-16, 10)
+    ax35.yaxis.set_label_position("right")
+    ax35.yaxis.tick_right()
+    ax35.set_xlabel("Transmission eigenvalues", fontsize=20)
+    ax35.set_ylabel("eig$(t^\dagger t)$", fontsize=20)
+    ax35.tick_params(which='major', width=0.75, labelsize=20)
+    ax35.tick_params(which='major', length=14, labelsize=20)
+    ax35.set_title('Transmission eigenvalues for $E=$ {:.2f} meV'.format(fermi[E_resonance_index]), fontsize=20)
 
 
     # Distribution of scattering states in logscale
