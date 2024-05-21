@@ -24,7 +24,7 @@ from functions import check_imaginary
 
 #%% Logging setup
 loger_nano = logging.getLogger('transport')
-loger_nano.setLevel(logging.ERROR)
+loger_nano.setLevel(logging.INFO)
 
 stream_handler = colorlog.StreamHandler()
 formatter = ColoredFormatter(
@@ -181,7 +181,7 @@ def scattering_to_transfer(S, debug=False):
     if debug:
         loger_nano.debug('Checking current flow conservation...')
         if not np.allclose(T.T.conj() @ np.kron(sigma_z, np.eye(n_modes)) @ T, np.kron(sigma_z, np.eye(n_modes)),
-                           atol=1e-8):
+                           atol=1e-13):
             raise ValueError('Current flow not preserved by the transfer matrix!')
 
     return T
@@ -191,9 +191,9 @@ def scat_product(s1, s2, debug=False):
         loger_nano.debug('Checking size and unitarity preconditions of the scattering matrix...')
         if s1.shape != s2.shape:
             raise ValueError(" Different size for scattering matrices")
-        if not np.allclose(s1.T.conj() @ s1, np.eye(len(s1)), atol=1e-8):
+        if not np.allclose(s1.T.conj() @ s1, np.eye(len(s1)), atol=1e-10):
             raise ValueError('Unitarity of the scattering matrix not preserved!')
-        if not np.allclose(s2.T.conj() @ s2, np.eye(len(s2)), atol=1e-8):
+        if not np.allclose(s2.T.conj() @ s2, np.eye(len(s2)), atol=1e-10):
             raise ValueError('Unitarity of the scattering matrix not preserved!')
 
     # Divide scattering matrix
@@ -220,7 +220,7 @@ def scat_product(s1, s2, debug=False):
 
     if debug:
         loger_nano.debug('Checking unitarity of the resulting scattering matrix...')
-        if not np.allclose(scat_matrix.T.conj() @ scat_matrix, np.eye(len(scat_matrix)), atol=1e-8):
+        if not np.allclose(scat_matrix.T.conj() @ scat_matrix, np.eye(len(scat_matrix)), atol=1e-10):
             raise ValueError('Unitarity of the scattering matrix not preserved!')
 
     return scat_matrix
@@ -394,6 +394,23 @@ def gaussian_correlated_potential_2D_FFT(L, r, Nx, Ny, strength, xi, vf):
 
 def constant_2D_potential(Nx, Ntheta, V, L, r):
     V_real = V * np.ones((Ntheta, Nx))
+    V_1 = fft2(V_real) * np.sqrt(L * 2 * pi * r) / (Nx * Ntheta)
+    V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * r))
+    return V_fft, V_real
+
+def sym_potential_barrier_2D(Nx, Ntheta, V1, V2, L, r):
+    V_real = np.zeros((Ntheta, Nx))
+    V_real[:, :int(Nx/2)] = V1 * np.ones((Ntheta, int(Nx/2)))
+    V_real[:, int(Nx / 2) + 1:] = V2 * np.ones((Ntheta, int(Nx / 2)))
+    V_1 = fft2(V_real) * np.sqrt(L * 2 * pi * r) / (Nx * Ntheta)
+    V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * r))
+    return V_fft, V_real
+
+def sym_potential_well_2D(Nx, Ntheta, V1, V2, L, r):
+    V_real = np.zeros((Ntheta, Nx))
+    V_real[:, :int(Nx/3)] = V1 * np.ones((Ntheta, int(Nx/3)))
+    V_real[:, int(Nx/3): int(2 * Nx /3)] = V2 * np.ones((Ntheta, int(Nx / 3)))
+    V_real[:, int(2 * Nx / 3):] = V1 * np.ones((Ntheta, int(Nx / 3)))
     V_1 = fft2(V_real) * np.sqrt(L * 2 * pi * r) / (Nx * Ntheta)
     V_fft = ifft(V_1, axis=1) * (Nx / np.sqrt(L)) * (1 / np.sqrt(2 * pi * r))
     return V_fft, V_real
@@ -589,7 +606,7 @@ class Nanostructure:
                     self.add_nw(x, self.x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
 
     # Methods for calculating transport-related quantities
-    def get_transfer_matrix(self, E, n_region, T=None, debug=False):
+    def get_transfer_matrix(self, E, n_region, T=None, debug=True):
 
         key_list = ('x0', 'xf', 'dx', 'V', 'r', 'w', 'h')
         x0, xf, dx, V, r, w, h = [self.geometry[n_region][key] for key in key_list]
@@ -603,12 +620,12 @@ class Nanostructure:
             loger_nano.debug('Checking current flow conservation...')
             n_modes = int(T.shape[0] / 2)
             if not np.allclose(T.T.conj() @ np.kron(sigma_z, np.eye(n_modes)) @ T, np.kron(sigma_z, np.eye(n_modes)),
-                               atol=1e-13):
+                               atol=1e-10):
                 raise ValueError('Current flow not preserved by the transfer matrix!')
 
         return T
 
-    def get_scattering_matrix(self, E, n_region, S=None, backwards=False, debug=False):
+    def get_scattering_matrix(self, E, n_region, S=None, backwards=False, debug=True):
 
         region_type, n_points = [self.geometry[n_region][key] for key in ('region_type', 'n_points')]
 
@@ -617,13 +634,17 @@ class Nanostructure:
 
             # No need for discretisation
             if n_points is None:
-                T = self.get_transfer_matrix(E, n_region)
-                if S is None:
-                    S = transfer_to_scattering(T)
-                elif backwards:
-                    S = scat_product(transfer_to_scattering(T), S)
-                else:
-                    S = scat_product(S, transfer_to_scattering(T))
+                try:
+                    T = self.get_transfer_matrix(E, n_region)
+                    if S is None:
+                        S = transfer_to_scattering(T)
+                    elif backwards:
+                        S = scat_product(transfer_to_scattering(T), S)
+                    else:
+                        S = scat_product(S, transfer_to_scattering(T))
+                except Exception as ex:
+                    loger_nano.error(f'Region: {n_region} | x: {self.geometry[n_region]["x0"]} nm')
+                    raise ValueError(f'{ex}')
 
                 if debug:
                     loger_nano.debug('Checking for overflow in the scattering matrix...')
@@ -637,10 +658,11 @@ class Nanostructure:
 
         return S
 
-    def get_Landauer_conductance(self, E, debug=False):
+    def get_Landauer_conductance(self, E, n_regions_transport=None, debug=False):
 
         S = None
-        for i in range(0, self.n_regions):
+        jump = 1 if n_regions_transport is None else int((self.n_regions / n_regions_transport)) + 1
+        for i in range(0, self.n_regions, jump):
             S = self.get_scattering_matrix(E, i, S=S)
 
         if debug:
@@ -746,7 +768,7 @@ class Nanostructure:
 
         return phi_inL, phi_outR
 
-    def get_scattering_states(self, E, initial_state=0, debug=False):
+    def get_scattering_states(self, E, initial_state=0, debug=True):
 
         loger_nano.trace('Calculating scattering states...')
 
@@ -789,6 +811,7 @@ class Nanostructure:
 
         loger_nano.trace('Calculating distribution of scattering states...')
         n_modes = len(phi_inL_lead)
+        count, region_err, x_err = 0, None, None
         for i in range(0, self.n_regions):
             start_iter = time.time()
 
@@ -802,16 +825,13 @@ class Nanostructure:
             phi_x_leftmover = r2 @ phi_x_rightmover
             phi = np.concatenate((phi_x_rightmover, phi_x_leftmover))
 
+            loger_nano.info('Region: {}/{}, x:{:.2f} nm, iter time: {:.3f} s'.format(i, self.n_regions,
+                                                     self.geometry[i]['x0'], time.time() - start_iter))
 
-            phi_outL_lead  = S_forward_storage[:, :, -1][0: n_modes, 0: n_modes] @ phi_inL_lead
-            norm = np.dot(phi_x_rightmover, phi_x_rightmover.T.conj()) - np.dot(phi_x_leftmover, phi_x_leftmover.T.conj())
-            norm1 = np.dot(phi_outR_lead, phi_outR_lead.T.conj())
-            norm2 = np.dot(phi_inL_lead, phi_inL_lead.T.conj()) - np.dot(phi_outL_lead, phi_outL_lead.T.conj())
-            print(norm, norm1, norm2)
 
-            loger_nano.trace('Region: {}/{}, x:{:.2f} nm, iter time: {:.3f} s'.format(i, self.n_regions,
-                                                    self.geometry[i]['x0'], time.time() - start_iter))
             if debug:
+
+                # Condition numbers and numerical instabilities
                 c1 = np.linalg.cond(np.eye(n_modes) - rp1 @ r2)
                 det1 = np.abs(np.linalg.det(np.eye(n_modes) - rp1 @ r2))
                 det2 = np.abs(np.linalg.det(np.linalg.inv(np.eye(n_modes) - rp1 @ r2)))
@@ -828,6 +848,21 @@ class Nanostructure:
                 loger_nano.debug('max value phi_x+: {}'.format(max_phi1))
                 loger_nano.debug('max value phi_x-: {}'.format(max_phi2))
 
+                # Current conservation in the scattering algorithm
+                phi_outL_lead = S_forward_storage[:, :, -1][0: n_modes, 0: n_modes] @ phi_inL_lead
+                norm_phi_leadL = np.linalg.norm(phi_inL_lead) ** 2 + np.linalg.norm(phi_outL_lead) ** 2
+                norm_phi_x = np.linalg.norm(phi_x_rightmover) ** 2 + np.linalg.norm(phi_x_leftmover) ** 2
+                norm_phi_leadR = np.linalg.norm(phi_outR_lead) ** 2
+                I_phi_leadL = np.linalg.norm(phi_inL_lead) ** 2 - np.linalg.norm(phi_outL_lead) ** 2
+                I_phi_x = np.linalg.norm(phi_x_rightmover) ** 2 - np.linalg.norm(phi_x_leftmover) ** 2
+                I_phi_leadR = np.linalg.norm(phi_outR_lead) ** 2
+                loger_nano.debug(f'left lead: {norm_phi_leadL}, right lead: {norm_phi_leadR}, x:  {norm_phi_x}')
+                loger_nano.debug(f'left lead: {I_phi_leadL}, right lead: {I_phi_leadR}, x:  {I_phi_x}')
+                if np.abs(I_phi_x - I_phi_leadL) > 0.01 * I_phi_x:
+                    count += 1
+                    if count == 1: region_err, x_err = i, self.geometry[i]['x0']
+                    loger_nano.warning('Current not conserved in the scattering state algorithm')
+
             # Scattering states for the slab
             for j, theta in enumerate(self.theta_vec):
                 trans_modes = (1 / np.sqrt(2 * pi * self.rad)) * np.exp(1j * theta * (self.modes - 1 / 2))
@@ -840,7 +875,8 @@ class Nanostructure:
             phi2 = phi[:self.Nmodes].conj() / np.linalg.norm(phi[:self.Nmodes])
             dot = np.abs(np.dot(phi1, phi2))
             if dot < 0.9:
-                loger_nano.warning('Transferred and transmitted states do not coincide. Overlap: {}'.format(dot))
+                loger_nano.error('Transferred and transmitted states do not coincide. Overlap: {}'.format(dot))
+        loger_nano.warning(f'Region where current conservation breaks: {region_err}, x: {x_err}')
 
         return psi_scatt_up, psi_scatt_down
 

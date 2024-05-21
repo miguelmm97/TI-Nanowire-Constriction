@@ -82,7 +82,8 @@ else:
         V_fft = V_real
         logger_main.info('Potential shape: {}'.format(np.shape(V_real)))
     else:
-        V_fft, V_real = gaussian_correlated_potential_2D_FFT(msv.L, msv.r, msv.Nx, msv.Ntheta_fft, msv.dis_strength, msv.corr_length, msv.vf)
+        V_fft, V_real = sym_potential_well_2D(msv.Nx, msv.Ntheta_fft, 0, 0, msv.L, msv.r)
+        # V_fft, V_real = gaussian_correlated_potential_2D_FFT(msv.L, msv.r, msv.Nx, msv.Ntheta_fft, msv.dis_strength, msv.corr_length, msv.vf)
         logger_main.info('Potential shape: {}'.format(np.shape(V_real)))
 
 #%% Main

@@ -13,7 +13,7 @@ from functions import load_my_data, load_my_attr, check_imaginary
 
 
 #%% Loading data
-file_list = ['Experiment195.h5']
+file_list = ['Experiment202.h5']
 
 # Old storage scheme
 # data_dict = load_my_data(file_list, '../Data')
@@ -52,7 +52,7 @@ dis_strength           = data_dict[file_list[0]]['Parameters']['dis_strength']
 E_resonance_index      = data_dict[file_list[0]]['Parameters']['E_resonance_index']
 Ntheta_plot            = data_dict[file_list[0]]['Parameters']['Ntheta_fft']
 G                      = data_dict[file_list[0]]['Simulation']['G']
-V_real                 = data_dict[file_list[0]]['Simulation']['Potential_xy']
+V_real                 = data_dict[file_list[0]]['Simulation']['V_real']
 scatt_density_up       = data_dict[file_list[0]]['Simulation']['scatt_density_up']
 scatt_density_down     = data_dict[file_list[0]]['Simulation']['scatt_density_down']
 trans_eigenvalues      = data_dict[file_list[0]]['Simulation']['trans_eigenvalues']
@@ -61,7 +61,6 @@ fermi                  = data_dict[file_list[0]]['Simulation']['fermi']
 x                      = data_dict[file_list[0]]['Simulation']['x']
 
 scatt_density_tot = scatt_density_up + scatt_density_down
-
 
 # %% Figures
 font = {'family': 'serif', 'color': 'black', 'weight': 'normal', 'size': 22, }
@@ -156,18 +155,18 @@ if dimension=='1d':
 
 
     # Transmission eigenvalues
-    # ax35.plot(np.arange(len(trans_eigenvalues)), np.sort(trans_eigenvalues), 'o', color=color_list[2])
-    # ax35.plot(len(trans_eigenvalues) - transmission_eigenval - 1,
-    #           np.sort(trans_eigenvalues)[len(trans_eigenvalues) - transmission_eigenval - 1], 'o', color='red')
-    # ax35.set_yscale('log')
-    # ax35.yaxis.set_label_position("right")
-    # ax35.yaxis.tick_right()
-    # ax35.set_ylim(10e-16, 10)
-    # ax35.set_xlabel("Transmission eigenvalues", fontsize=20)
-    # ax35.set_ylabel("eig$(t^\dagger t)$", fontsize=20)
-    # ax35.tick_params(which='major', width=0.75, labelsize=20)
-    # ax35.tick_params(which='major', length=14, labelsize=20)
-    # ax35.set_title('Transmission eigenvalues for $E=$ {:.2f} meV'.format(fermi[E_resonance_index]), fontsize=20)
+    ax35.plot(np.arange(len(trans_eigenvalues)), np.sort(trans_eigenvalues), 'o', color=color_list[2])
+    ax35.plot(len(trans_eigenvalues) - transmission_eigenval - 1,
+              np.sort(trans_eigenvalues)[len(trans_eigenvalues) - transmission_eigenval - 1], 'o', color='red')
+    ax35.set_yscale('log')
+    ax35.yaxis.set_label_position("right")
+    ax35.yaxis.tick_right()
+    ax35.set_ylim(10e-16, 10)
+    ax35.set_xlabel("Transmission eigenvalues", fontsize=20)
+    ax35.set_ylabel("eig$(t^\dagger t)$", fontsize=20)
+    ax35.tick_params(which='major', width=0.75, labelsize=20)
+    ax35.tick_params(which='major', length=14, labelsize=20)
+    ax35.set_title('Transmission eigenvalues for $E=$ {:.2f} meV'.format(fermi[E_resonance_index]), fontsize=20)
 
     # Distribution of scattering states in logscale
     check_imaginary(scatt_density_up)

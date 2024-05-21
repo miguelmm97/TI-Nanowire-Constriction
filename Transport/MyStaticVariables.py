@@ -8,11 +8,11 @@ import h5py
 from dataclasses import dataclass, field, fields
 
 
-def init_my_variable(variable: any, type_check: type) -> any:
+def init_my_variable(variable: any, type_check: type, var_name=None) -> any:
     if isinstance(variable, type_check):
         return variable
     else:
-        raise TypeError('Input variable type does not match with the expected type!')
+        raise TypeError('Input variable type of {} does not match with the expected type!'.format(var_name))
 
 
 
@@ -37,6 +37,7 @@ class MyStaticVariables:
     default_Ntheta_plot:    int = 0
 
     # Transport calculation
+    Nx_transport:             int = 0
     fermi_0:                float = 0.0
     fermi_end:              float = 0.0
     fermi_length:           int = 0
@@ -48,8 +49,8 @@ class MyStaticVariables:
     fermi_end_IPR:          float = 0.0
     fermi_length_IPR:       int = 0
     res_index:              list = field(default_factory=lambda: [0])
-    x0:                     list = field(default_factory=lambda: [0])
-    theta0:                 list = field(default_factory=lambda: [0])
+    x0:                     list = field(default_factory=lambda: [None])
+    theta0:                 list = field(default_factory=lambda: [None])
     N_deltax:               int = 0
     N_deltatheta:           int = 0
 
@@ -58,6 +59,7 @@ class MyStaticVariables:
     save_data_transport:    bool = False
     load_file_transport:    str = ''
     calculate_transport:    bool = False
+    calculate_scattering:   bool = False
     dimension:              str = ''
 
     # Flags for IPR
@@ -81,7 +83,7 @@ class MyStaticVariables:
 
                     # Assign value to the field from the config dictionary
                     if var_item == f.name:
-                        var = init_my_variable(config_dict[var_group][var_item], f.type)
+                        var = init_my_variable(config_dict[var_group][var_item], f.type, var_name=var_item)
                         if list_as_array and f.type == list:
                             setattr(self, f.name, array(var))
                         else:
@@ -89,11 +91,27 @@ class MyStaticVariables:
         return self
 
 
-    def load_data_to_var(self, file_path):
+    def load_data_to_static_var(self, file_path, load_flags=False):
 
+        if load_flags:
+            with h5py.File(file_path, 'r') as f:
+                for fld in fields(self):
+                    for dataset in f['Parameters'].keys():
+                        if dataset == fld.name and fld.name:
+                            if isinstance(f['Parameters'][dataset][()], bytes):
+                                setattr(self, fld.name, f['Parameters'][dataset][()].decode())
+                            else:
+                                setattr(self, fld.name, f['Parameters'][dataset][()])
 
-        with h5py.File(file_path, 'r') as f:
-            for fld in fields(self):
-                for dataset in f['Parameters'].keys():
-                    if dataset == fld.name:
-                        setattr(self, fld.name, f['Parameters'][dataset][()])
+        else:
+            list_flags = ['load_data_transport', 'save_data_transport', 'load_file_transport','calculate_transport',
+                          'calculate_scattering', 'load_data_IPR', 'save_data_IPR', 'load_file_IPR','calculate_IPR']
+
+            with h5py.File(file_path, 'r') as f:
+                for fld in fields(self):
+                    for dataset in f['Parameters'].keys():
+                        if dataset == fld.name and fld.name not in list_flags:
+                            if isinstance(f['Parameters'][dataset][()], bytes):
+                                setattr(self, fld.name, f['Parameters'][dataset][()].decode())
+                            else:
+                                setattr(self, fld.name, f['Parameters'][dataset][()])

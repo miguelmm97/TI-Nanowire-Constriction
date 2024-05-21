@@ -9,7 +9,8 @@ contain parameters.
 
 import numpy as np
 from numpy import pi
-from dataclasses import dataclass, field
+import h5py
+from dataclasses import dataclass, field, fields
 
 
 @dataclass
@@ -24,6 +25,8 @@ class MyStatusVariablesTransport:
     Ntheta_grid:        np.ndarray[int, np.dtype(np.float64)] = field(init=False)
     theta:              np.ndarray[int, np.dtype(np.float64)] = field(init=False)
     r_vec:              np.ndarray[int, np.dtype(np.float64)] = field(init=False)
+    V_real:             np.ndarray[int, np.dtype(np.float64)] = field(init=False)
+    V_fft:              np.ndarray[int, np.dtype(np.complex128)] = field(init=False)
     Ntheta_plot:        int = field(init=False)
 
     # Preallocation
@@ -52,7 +55,22 @@ class MyStatusVariablesTransport:
 
         # Preallocation
         self.Vstd_th_2d         = np.sqrt(self.msv.dis_strength / (2. * pi)) * self.msv.vf / self.msv.corr_length
-        self.G                  = np.zeros((self.fermi.shape), dtype=np.float64)
+        self.G                  = np.zeros(self.fermi.shape, dtype=np.float64)
+        self.V_real             = np.zeros((len(self.theta), len(self.x)), dtype=np.float64)
+        self.V_fft              = np.zeros((len(self.theta), len(self.x)), dtype=np.complex128)
 
         return self
+
+    def load_data_to_sim_var(self, file_path):
+
+        with h5py.File(file_path, 'r') as f:
+            for fld in fields(self):
+                for dataset in f['Simulation'].keys():
+                    if dataset == fld.name:
+                        if isinstance(f['Simulation'][dataset][()], bytes):
+                            setattr(self, fld.name, f['Simulation'][dataset][()].decode())
+                        else:
+                            setattr(self, fld.name, f['Simulation'][dataset][()])
+
+
 

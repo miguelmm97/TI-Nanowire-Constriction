@@ -40,7 +40,7 @@ def addLoggingLevel(levelName, levelNum, methodName=None):
 
 addLoggingLevel("TRACE", logging.DEBUG - 5)
 logger_functions = logging.getLogger('functions')
-logger_functions.setLevel(logging.ERROR)
+logger_functions.setLevel(logging.INFO)
 
 stream_handler = colorlog.StreamHandler()
 formatter = ColoredFormatter(
@@ -85,14 +85,14 @@ def store_my_data(file, name, data):
     try:
         file.create_dataset(name=name, data=data)
     except Exception as ex:
-        logger_functions.warning(f'Failed to write {name} because of exception: {ex}')
+        logger_functions.warning(f'Failed to write {name} in {file} because of exception: {ex}')
 
 
 def attr_my_data(dataset, attr_name, attr):
     try:
         dataset.attrs.create(name=attr_name, data=attr)
     except Exception as ex:
-        logger_functions.warning(f'Failed to write {attr_name} because of exception: {ex}')
+        logger_functions.warning(f'Failed to write {attr_name} in {dataset} because of exception: {ex}')
 
 
 def load_my_data(file_list, directory):
@@ -109,9 +109,15 @@ def load_my_data(file_list, directory):
                 try:
                     data_dict[file][group] = {}
                     for dataset in f[group].keys():
-                        data_dict[file][group][dataset] = f[group][dataset][()]
+                        if isinstance(f[group][dataset][()], bytes):
+                            data_dict[file][group][dataset] = f[group][dataset][()].decode()
+                        else:
+                            data_dict[file][group][dataset] = f[group][dataset][()]
                 except AttributeError:
-                    data_dict[file][group] = f[group][()]
+                    if isinstance(f[group][()], bytes):
+                        data_dict[file][group] = f[group][()].decode()
+                    else:
+                        data_dict[file][group] = f[group][()]
 
     return data_dict
 
