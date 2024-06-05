@@ -37,10 +37,11 @@ class MyStaticVariables:
     default_Ntheta_plot:    int = 0
 
     # Transport calculation
-    Nx_transport:             int = 0
     fermi_0:                float = 0.0
     fermi_end:              float = 0.0
     fermi_length:           int = 0
+
+    # Scattering state calculation
     E_resonance_index:      int = 0
     transmission_eigenval:  int = 0
 
@@ -58,9 +59,14 @@ class MyStaticVariables:
     load_data_transport:    bool = False
     save_data_transport:    bool = False
     load_file_transport:    str = ''
-    calculate_transport:    bool = False
-    calculate_scattering:   bool = False
-    dimension:              str = ''
+    dimension_transport:    str = ''
+
+    # Flags for scattering
+    load_data_scatt:        bool = False
+    save_data_scatt:        bool = False
+    load_file_scatt:        str = ''
+    dimension_scatt:        str = ''
+    load_pot_scatt:         str = ''
 
     # Flags for IPR
     load_data_IPR:          bool = False
@@ -91,13 +97,16 @@ class MyStaticVariables:
         return self
 
 
-    def load_data_to_static_var(self, file_path, load_flags=False):
+    def load_data_to_static_var(self, file_path, load_flags=False, not_load_var=None):
+
+        if not_load_var is None:
+            not_load_var = []
 
         if load_flags:
             with h5py.File(file_path, 'r') as f:
                 for fld in fields(self):
                     for dataset in f['Parameters'].keys():
-                        if dataset == fld.name and fld.name:
+                        if dataset == fld.name and fld.name not in not_load_var:
                             if isinstance(f['Parameters'][dataset][()], bytes):
                                 setattr(self, fld.name, f['Parameters'][dataset][()].decode())
                             else:
@@ -110,7 +119,7 @@ class MyStaticVariables:
             with h5py.File(file_path, 'r') as f:
                 for fld in fields(self):
                     for dataset in f['Parameters'].keys():
-                        if dataset == fld.name and fld.name not in list_flags:
+                        if dataset == fld.name and fld.name not in list_flags and fld.name not in not_load_var:
                             if isinstance(f['Parameters'][dataset][()], bytes):
                                 setattr(self, fld.name, f['Parameters'][dataset][()].decode())
                             else:

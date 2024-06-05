@@ -76,9 +76,12 @@ def get_fileID(file_list, common_name='datafile'):
 
 
 def check_imaginary(array):
+    count = 0
     for x in np.nditer(array):
         if not np.imag(x) < 2 * np.finfo(np.float64).eps:
-            raise ValueError('Imaginary part is not negligible!')
+            count += 1
+    if count > 0:
+        logger_functions.warning('Imaginary part is not negligible!')
 
 
 def store_my_data(file, name, data):

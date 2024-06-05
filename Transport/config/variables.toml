@@ -1,6 +1,6 @@
 [constants]
 vf                       = 330.0       # Fermi velocity in meV nm
-l_cutoff                 = 30           # Cutoff number modes
+l_cutoff                 = 20          # Cutoff number modes
 
 
 [magnetic_field]
@@ -9,50 +9,56 @@ B_perp                   = 0.0         # Perpendicular magnetic field in T
 
 
 [disorder_potential]
-corr_length              = 10.0        # Correlation length in nm
+corr_length              = 20.0        # Correlation length in nm
 dis_strength             = 6.0         # Disorder strength in vf / xi scale
 
 
 [geometry]
 r                        = 20.0        # Radius of the nanowire
 L                        = 900.0       # Length of the system in nm
-Nx                       = 5001       # Number of points in the x grid for the FFT (and plotting) (must be odd for FFT)
+Nx                       = 5001        # Number of points in the x grid for the FFT (and plotting) (must be odd for FFT)
 Ntheta_fft               = 301         # Number of points in the theta grid for the FFT (not plotting) (must be odd for FFT)
 default_Ntheta_plot      = 301         # Default number of points in the theta grid for plotting
 
 
 [specs_transport]
-Nx_transport               = 501
-fermi_0                    = -5.0     # Initial value of the Fermi energy
-fermi_end                  = 5.0      # Final value of the Fermi energy
-fermi_length               = 1         # Length of the Fermi array
-E_resonance_index          = 0         # Index in the Fermi array where the resonant energy lies
+fermi_0                    = -100.0     # Initial value of the Fermi energy
+fermi_end                  = 100.0      # Final value of the Fermi energy
+fermi_length               = 10000      # Length of the Fermi array
+dim_transport              = '2d'      # If 1d sets Ntheta_fft to 1 but keeps a default value to plot
+
+
+[specs_scatt]
+E_resonance_index          = 1825       # Index in the Fermi array where the resonant energy lies
 transmission_eigenval      = 0         # Index of the transmitted eigenmoded array we pick as the scattering state
+dim_scatt                  = '2d'      # If 1d sets Ntheta_fft to 1 but keeps a default value to plot
 
 
 [specs_IPR]
-fermi_0_IPR               = -10.0                      # Initial value of the Fermi energy
-fermi_end_IPR             = 10.0                       # Final value of the Fermi energy
-fermi_length_IPR          = 1                          # Length of the Fermi array
-res_index                 = [0]                        # List of resonances to look at
-x0                        = [130] #, 152, 150, 447]    # List of x ranges to calculate the IPR over
-theta0                    = [71]# , 178, 71, 92]       # List of theta ranges to calculate the IPR over
+fermi_0_IPR               = -10.0      # Initial value of the Fermi energy
+fermi_end_IPR             = 10.0       # Final value of the Fermi energy
+fermi_length_IPR          = 1          # Length of the Fermi array
+res_index                 = [0]        # List of resonances to look at
+x0                        = [130]      # List of x ranges to calculate the IPR over
+theta0                    = [71]       # List of theta ranges to calculate the IPR over
 N_deltax                  = 0
 N_deltatheta              = 0
 
 [flags_transport]
-load_data_transport       = true                 # If false no data is loaded
-save_data_transport       = true                  # If true saves data in an automatically generated file 'ExperimentNUM.h5'
-load_file_transport       = 'Experiment224.h5' # File to load if load_data is true
-calculate_transport       = true                  # If true calculates the conductance of the nanostructure
-calculate_scattering      = false                 # If true calculates the scattering state at the indicated energy
-dimension                 = '2d'                  # If 1d sets Ntheta_fft to 1 but keeps a default value to plot
+load_data_transport       = true                # If false no data is loaded
+save_data_transport       = true                # If true saves data in an automatically generated file 'ExperimentNUM.h5'
+load_file_transport       = 'Experiment241.h5'  # File to load if load_data is true
 
+[flags_scattering]
+load_data_scatt           = true                # If false no data is loaded
+save_data_scatt           = true                # If true saves data in an automatically generated file 'ExperimentNUM.h5'
+load_file_scatt           = 'Experiment246.h5'  # File to load if load_data is true
+load_pot_scatt           = 'Experiment241.h5'  # File to load potential from if load_data is true
 
 [flags_IPR]
-load_data_IPR             = false                # If false no data is loaded
-save_data_IPR             = false                # If true saves data in an automatically generated file 'IPRNUM.h5'
-load_file_IPR             = 'G_gauss.h5'         # File to load if load_data is true
-calculate_IPR             = true                 # If true calculates the IPR of the resonances
-dimension_IPR             = '2d'                 # If 1d sets Ntheta_fft to 1 but keeps a default value to plot
+load_data_IPR             = false               # If false no data is loaded
+save_data_IPR             = false               # If true saves data in an automatically generated file 'IPRNUM.h5'
+load_file_IPR             = 'G_gauss.h5'        # File to load if load_data is true
+calculate_IPR             = true                # If true calculates the IPR of the resonances
+dimension_IPR             = '2d'                # If 1d sets Ntheta_fft to 1 but keeps a default value to plot
 

@@ -18,6 +18,7 @@ outdir = "../ProductionData"
 for file in os.listdir(outdir):
     if file == 'G_gauss.h5':
         with h5py.File(os.path.join(outdir, file), 'r') as f:
+
             datanode1          = f['Potential_xy']
             datanode2          = f['Conductance']
             V                  = datanode1[()][0, :]

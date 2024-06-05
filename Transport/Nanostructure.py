@@ -322,75 +322,107 @@ def gaussian_correlated_potential_1D_FFT(L, Nx, strength, xi, vf):
 
     return Vgauss
 
-def gaussian_correlated_potential_2D_FFT(L, r, Nx, Ny, strength, xi, vf):
-    """
-    Generates a sample of a gaussian correlated potential V(x) with strength,
-    a certain correlation length and Nx points in momentum space. It uses the
-    FFT algorithm from numpy.
-
-    Params:
-    ------
-    L:                            {np.float}  Physical length of the system
-    r:                            {np.float}  Radius of the wire
-    Nx:                             {np.int}  Number of Fourier modes (it must be odd)
-    Ntheta:                         {np.int}  Number of Fourier modes (it must be odd)
-    strength:                     {np.float}  Strength of the potential in units of (hbar vf /corr_length)^2
-    correlation_length:           {np.float}  Correlation length of the distribution in nm
-    vf:                           {np.float}  Fermi velocity in nm meV
-
-    Returns:
-    -------
-    Vgauss:                {np.array(float)}  Gaussian correlated potential sample
-    """
+def gaussian_correlated_potential_2D_FFT(L, r, Nx, Ny, strength, xi, vf, from_potential=None, debug=False):
 
     if (Nx % 2 == 0) or (Ny % 2 == 0): raise ValueError('Nx and Ny must be odd')
 
-    # Definitions for the transform
-    dx = L / Nx;
-    dy = 2 * pi * r / Ny
-    nx = int(Nx / 2);
-    ny = int(Ny / 2)
-    fmax_x = 2 * pi / dx;
-    df_x = 2 * pi / L
-    fmax_y = 2 * pi / dy;
-    df_y = 1 / r
-    fx = np.linspace(0, fmax_x / 2, num=nx + 1, endpoint=False)
-    fy = np.linspace(0, fmax_y / 2, num=ny + 1, endpoint=False)
-    FX, FY = np.meshgrid(fx, fy)
+    if from_potential is None:
+        # Preallocation
+        V = np.zeros((Ny, Nx))
+        phases = np.zeros((Ny, Nx))
+        scale = strength * (vf ** 2)
 
-    # Correlations and fourier modes
-    scale = strength * (vf ** 2)
-    V = np.zeros((Ny, Nx))
-    V_x0 = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[0, 1:] ** 2 + FY[0, 1:] ** 2)))
-    V_0y = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 0] ** 2 + FY[1:, 0] ** 2)))
-    V[0, 1:] = np.concatenate((V_x0, V_x0[::-1]))
-    V[1:, 0] = np.concatenate((V_0y, V_0y[::-1]))
-    V[0, 0] = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[0, 0] ** 2 + FY[0, 0] ** 2)))
-    V[1: ny + 1, 1: nx + 1] = np.random.normal(
-        scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 1:] ** 2 + FY[1:, 1:] ** 2)))
-    V[ny + 1:, 1: nx + 1] = np.random.normal(
-        scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 1:][::-1, :] ** 2 + FY[1:, 1:][::-1, :] ** 2)))
-    V[1: ny + 1, nx + 1:] = V[ny + 1:, 1: nx + 1][::-1, ::-1]
-    V[ny + 1:, nx + 1:] = V[1: ny + 1, 1: nx + 1][::-1, ::-1]
+        # Different momentum modes
+        dx, dy = L / Nx, 2 * pi * r / Ny
+        nx, ny = int(Nx / 2), int(Ny / 2)
+        fmax_x, fmax_y = 2 * pi / dx, 2 * pi / dy
+        df_x, df_y= 2 * pi / L, 1 / r
+        fx = np.linspace(0, fmax_x / 2, num=nx + 1, endpoint=False)
+        fy = np.linspace(0, fmax_y / 2, num=ny + 1, endpoint=False)
+        FX, FY = np.meshgrid(fx, fy)
 
-    phases = np.zeros((Ny, Nx))
-    phi_x0 = np.random.uniform(0, 2 * pi, size=int(Nx / 2))
-    phi_0y = np.random.uniform(0, 2 * pi, size=int(Ny / 2))
-    phases[0, 0] = 0
-    phases[1: ny + 1, 1: nx + 1] = np.random.uniform(0, 2 * pi, size=(ny, nx))
-    phases[ny + 1:, 1: nx + 1] = np.random.uniform(0, 2 * pi, size=(ny, nx))
-    phases[1: ny + 1, nx + 1:] = - phases[ny + 1:, 1: nx + 1][::-1, ::-1]
-    phases[ny + 1:, nx + 1:] = - phases[1: ny + 1, 1: nx + 1][::-1, ::-1]
-    phases[0, 1:] = np.concatenate((phi_x0, -phi_x0[::-1]))
-    phases[1:, 0] = np.concatenate((phi_0y, -phi_0y[::-1]))
-    FT_V = np.abs(V) * np.exp(1j * phases)
+        # Amplitude Vq for modes (qx, 0), (0, qy) and (0, 0)
+        V[0, 0] = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[0, 0] ** 2 + FY[0, 0] ** 2)))
+        V_x0 = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[0, 1:] ** 2 + FY[0, 1:] ** 2)))
+        V_0y = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 0] ** 2 + FY[1:, 0] ** 2)))
+        V[0, 1:] = np.concatenate((V_x0, V_x0[::-1]))
+        V[1:, 0] = np.concatenate((V_0y, V_0y[::-1]))
 
-    # Convert the product of the two functions back to real space
+        # Amplitude Vq for modes (qx, qy) and (-qx, -qy)
+        V[1: ny + 1, 1: nx + 1] = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 1:] ** 2 + FY[1:, 1:] ** 2)))
+        V[ny + 1:, nx + 1:] = V[1: ny + 1, 1: nx + 1][::-1, ::-1]
+
+        # Amplitude Vq for modes (qx, -qy) and (-qx, qy)
+        V[ny + 1:, 1: nx + 1] = np.random.normal(scale=np.sqrt(scale) * np.exp(- 0.25 * (xi ** 2) * (FX[1:, 1:][::-1, :] ** 2 + FY[1:, 1:][::-1, :] ** 2)))
+        V[1: ny + 1, nx + 1:] = V[ny + 1:, 1: nx + 1][::-1, ::-1]
+
+        # Phases phi_q for modes (qx, 0), (0, qy) and (0, 0)
+        phases[0, 0] = 0
+        phi_x0 = np.random.uniform(0, 2 * pi, size=int(Nx / 2))
+        phi_0y = np.random.uniform(0, 2 * pi, size=int(Ny / 2))
+        phases[0, 1:] = np.concatenate((phi_x0, -phi_x0[::-1]))
+        phases[1:, 0] = np.concatenate((phi_0y, -phi_0y[::-1]))
+
+        # Phases phi_q for modes (qx, qy) and (-qx, -qy)
+        phases[1: ny + 1, 1: nx + 1] = np.random.uniform(0, 2 * pi, size=(ny, nx))
+        phases[ny + 1:, nx + 1:] = - phases[1: ny + 1, 1: nx + 1][::-1, ::-1]
+
+        # Phases phi_q for modes (qx, -qy) and (-qx, qy)
+        phases[ny + 1:, 1: nx + 1] = np.random.uniform(0, 2 * pi, size=(ny, nx))
+        phases[1: ny + 1, nx + 1:] = - phases[ny + 1:, 1: nx + 1][::-1, ::-1]
+
+        # Fourier Transform
+        FT_V = np.abs(V) * np.exp(1j * phases)
+
+    elif Nx==from_potential.shape[1] and Ny==from_potential.shape[0]:
+        dx, dy = L / Nx, 2 * pi * r / Ny
+        df_x, df_y = 2 * pi / L, 1 / r
+        FT_V = from_potential
+
+        if debug:
+            # Calculate Fourier transform again and see if they coincide
+            loger_nano.debug('Checking the old and new FFT matrices of the potential coincide when recalculating them')
+            nx, ny = int(Nx / 2), int(Ny / 2)
+            dx, dy = L / Nx, 2 * pi * r / Ny
+            df_x, df_y = 2 * pi / L, 1 / r
+            FT_V_old = from_potential
+            FT_V = np.zeros((Ny, Nx), dtype=np.complex128)
+            FT_V[0, 0] = FT_V_old[0, 0]
+            FT_V[1:, 0] = FT_V_old[1:, 0]
+            FT_V[0, 1:] = np.concatenate((FT_V_old[0, 1: nx + 1], FT_V_old[0, 1: nx + 1][::-1].conj()))
+            FT_V[1: ny + 1, 1: nx + 1] = FT_V_old[1: ny + 1, 1: nx + 1]
+            FT_V[ny + 1:, nx + 1:] = FT_V[1: ny + 1, 1: nx + 1][::-1, ::-1].conj()
+            FT_V[ny + 1:, 1: nx + 1] = FT_V_old[ny + 1:, 1: nx + 1]
+            FT_V[1: ny + 1, nx + 1:] = FT_V[ny + 1:, 1: nx + 1][::-1, ::-1].conj()
+            for i in range(FT_V.shape[0]):
+                for j in range(FT_V.shape[1]):
+                    if not np.allclose(FT_V[i, j], FT_V_old[i, j]):
+                        error_re = np.abs(np.real(FT_V[i, j]) - np.real(FT_V_old[i, j]))
+                        error_im = np.abs(np.imag(FT_V[i, j]) - np.imag(FT_V_old[i, j]))
+                        loger_nano.debug(f'Element ({i}, {j}) of the new FFT does not coincide with the old. '
+                                         f'Re(err): {error_re}, Im(err): {error_im}' )
+
+    else:
+        # New shapes for the fourier transform matrix
+        nx, ny = int(Nx / 2), int(Ny / 2)
+        dx, dy = L / Nx, 2 * pi * r / Ny
+        df_x, df_y = 2 * pi / L, 1 / r
+
+        # Construct a coarse grained Fourier Transform keeping modes until nx, ny
+        FT_V_old = from_potential
+        FT_V = np.zeros((Ny, Nx), dtype=np.complex128)
+        FT_V[0, 0]  = FT_V_old[0, 0]
+        FT_V[1:, 0] = FT_V_old[1:, 0]
+        FT_V[0, 1:] = np.concatenate((FT_V_old[0, 1: nx + 1], FT_V_old[0, 1: nx + 1][::-1].conj()))
+        FT_V[1: ny + 1, 1: nx + 1]  = FT_V_old[1: ny + 1, 1: nx + 1]
+        FT_V[ny + 1:, nx + 1:]      = FT_V[1: ny + 1, 1: nx + 1][::-1, ::-1].conj()
+        FT_V[ny + 1:, 1: nx + 1]    = FT_V_old[ny + 1:, 1: nx + 1]
+        FT_V[1: ny + 1, nx + 1:]    = FT_V[ny + 1:, 1: nx + 1][::-1, ::-1].conj()
+
     Vgauss = (2 * np.pi) * ifft2(FT_V) / (dx * dy) / (np.sqrt(df_x) * np.sqrt(df_y))
-    V_iFFTx = np.sqrt(2 * np.pi) * ifft(FT_V, axis=1) / (dx) / np.sqrt(df_x)
+    V_iFFTx = np.sqrt(2 * np.pi) * ifft(FT_V, axis=1) / dx / np.sqrt(df_x)
 
-    # return V_iFFTx * (2 * pi * np.sqrt(r) / Ny), Vgauss
-    return V_iFFTx * (1 / np.sqrt(2 * pi * r)), Vgauss
+    return V_iFFTx * (1 / np.sqrt(2 * pi * r)), Vgauss, FT_V
 
 def constant_2D_potential(Nx, Ntheta, V, L, r):
     V_real = V * np.ones((Ntheta, Nx))
@@ -462,12 +494,13 @@ class Nanostructure:
     """ Transport calculations on 3dTI nanostructures based on their effective surface theory."""
 
     # Parameters of the model
-    L:        float             # Total length of the nanowire in nm
-    rad:      float             # Radius of the nanowire (only meaningful if constant radius)
-    vf:       float             # Fermi velocity in meV nm
-    B_perp:   float             # Magnetic field perpendicular to the axis of the nanostructure
-    n_flux:   float             # Magnetic field parallel to the axis of the nanostructure
-    l_cutoff: int               # Cutoff in the number of angular momentum modes
+    L:           float             # Total length of the nanowire in nm
+    rad:         float             # Radius of the nanowire (only meaningful if constant radius)
+    vf:          float             # Fermi velocity in meV nm
+    B_perp:      float             # Magnetic field perpendicular to the axis of the nanostructure
+    n_flux:      float             # Magnetic field parallel to the axis of the nanostructure
+    l_cutoff:    int               # Cutoff in the number of angular momentum modes
+
 
     # Arrays defining the geometry
     r_vec:      np.ndarray      # Array of radii through the nanostructure
@@ -546,67 +579,32 @@ class Nanostructure:
         self.n_regions += 1
 
     def build_geometry(self):
-        """
-        Builds the geometry of the nanostructure from specifying the radius, length and potential distribution of the
-        different sections. Once this distribution has been given, it creates a nanocone for consecutive points x, x+1
-        differing in radius, and a nanowire if they have the same radius.
-
-        The idea is that the vectors r, x, and V give a discretisation of radii and potentials, so that they act as a
-        discretisation in which between every two points the potential is constant and the radius changes infinitesimally
-        With this we can build any geometry.
-
-        Furthermore, the Npoints vector allows us to perform the transport calculation by further discretising that region
-        when calculating the transfer matrix.
-
-        OBS!: The potential V can be both rotationally symmetric or non-rotationally symmetric. In the former case we
-        just have to include a discretised vector, each entry corresponding to V(x). In the latter, for each x entry we
-        have to include a vector along the radial direction. The entries of this vector are the FFT of V(theta, x), for
-        fixed x. We do it in this way because then we need to do the FT of V(theta) to get Vnm in the transfer matrix.
-
-        Params:
-        ------
-
-        r:         {np.array(floats)}   Discretisation of the radius of the nanostructure as a function o x
-        x:         {np.array(floats)}   Discretisation of x
-        V:         {np.array(floats)}   Discretisation of the potential as a function of x.
-        n_vec:     {np.array(floats)}   Number of points in the transport calculation for each individual region
-        sigma_vec: {np.array(floats)}   Smoothing factor for each individual region
-
-
-        Return:
-        -------
-        None, but updates self. geometry
-
-        """
-
-        loger_nano.trace('Building the complete geometry of the wire...')
+        loger_nano.info(f'Building the geometry of the wire. Nx: {len(self.x_vec)}, N_modes: {self.Nmodes}')
 
         # Rotation invariant potential
         if len(self.V_vec.shape) == 1:
-            for i, (r, x, V, n, sigma) in enumerate(
-                    zip(self.r_vec[:-1], self.x_vec[:-1], self.V_vec[:-1], self.n_vec[:-1], self.sigma_vec[:-1])):
-
+            for i, (r, x, V, n, sigma) in enumerate(zip(self.r_vec[:-1], self.x_vec[:-1], self.V_vec[:-1], self.n_vec[:-1],
+                                                        self.sigma_vec[:-1])):
                 # Nanocone section
                 if r != self.r_vec[i + 1]:
-                    self.add_nc(x, self.x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
+                    self.add_nc(x, self.x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=self.r_vec[i + 1])
                 # Nanowire section
                 else:
                     self.add_nw(x, self.x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
 
         # Broken rotation invariance
         elif len(self.V_vec.shape) == 2:
-            for i, (r, x, V, n, sigma) in enumerate(
-                    zip(self.r_vec[:-1], self.x_vec[:-1], self.V_vec[:, :-1].T, self.n_vec[:-1], self.sigma_vec[:-1])):
-
+            for i, (r, x, V, n, sigma) in enumerate(zip(self.r_vec[:-1], self.x_vec[:-1], self.V_vec[:, :-1].T, self.n_vec[:-1],
+                                                        self.sigma_vec[:-1])):
                 # Nanocone section
                 if r != self.r_vec[i + 1]:
-                    self.add_nc(x, self.x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=r[i + 1])
+                    self.add_nc(x, self.x_vec[i + 1], n, Vnm=self.get_potential_matrix(V), sigma=sigma, r1=r, r2=self.r_vec[i + 1])
                 # Nanowire section
                 else:
                     self.add_nw(x, self.x_vec[i + 1], Vnm=self.get_potential_matrix(V), n_points=n, r=r)
 
     # Methods for calculating transport-related quantities
-    def get_transfer_matrix(self, E, n_region, T=None, debug=True):
+    def get_transfer_matrix(self, E, n_region, T=None, debug=False):
 
         key_list = ('x0', 'xf', 'dx', 'V', 'r', 'w', 'h')
         x0, xf, dx, V, r, w, h = [self.geometry[n_region][key] for key in key_list]
@@ -625,7 +623,7 @@ class Nanostructure:
 
         return T
 
-    def get_scattering_matrix(self, E, n_region, S=None, backwards=False, debug=True):
+    def get_scattering_matrix(self, E, n_region, S=None, backwards=False, debug=False):
 
         region_type, n_points = [self.geometry[n_region][key] for key in ('region_type', 'n_points')]
 
@@ -658,11 +656,10 @@ class Nanostructure:
 
         return S
 
-    def get_Landauer_conductance(self, E, n_regions_transport=None, debug=False):
+    def get_Landauer_conductance(self, E, debug=False):
 
         S = None
-        jump = 1 if n_regions_transport is None else int((self.n_regions / n_regions_transport)) + 1
-        for i in range(0, self.n_regions, jump):
+        for i in range(self.n_regions):
             S = self.get_scattering_matrix(E, i, S=S)
 
         if debug:
@@ -728,7 +725,7 @@ class Nanostructure:
         else:
             return eigval_tt, eigvec_tt
 
-    def get_transmitted_state(self, E, state=0, debug=False):
+    def get_transmitted_state(self, E, state=0, debug=True):
 
         loger_nano.trace('Getting transmitted state...')
 
